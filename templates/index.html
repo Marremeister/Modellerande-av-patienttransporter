@@ -7,93 +7,181 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
+        /* Natural Color Theme */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            background: #f7f9fc;
+            color: #333;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
+
+        /* Title */
+        h1 {
+            font-size: 28px;
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        /* Controls */
         .controls {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
+            flex-wrap: wrap;
         }
-        select, button {
+
+        select, button, input {
             padding: 10px;
             font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            outline: none;
         }
+
+        /* Buttons */
+        button {
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            border: none;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        /* SVG Area */
+        svg {
+            width: 90vw;
+            height: 80vh;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        /* Nodes */
         .node {
-            fill: lightblue;
-            stroke: #333;
+            fill: #90CAF9; /* Soft Blue */
+            stroke: #2c3e50;
             stroke-width: 2px;
         }
+
+        .node:hover {
+            fill: #64B5F6;
+        }
+
+        /* Transport Links */
         .link {
-            stroke: #777;
+            stroke: #bbb;
             stroke-width: 2px;
         }
+
+        /* Transporter */
         .transporter {
-            fill: red;
+            fill: #E57373; /* Soft Red */
             stroke: black;
             stroke-width: 2px;
         }
-        text {
-            font-size: 14px;
-            fill: black;
-            font-weight: bold;
-        }
-        svg {
+
+        /* Log Panel */
+        #logPanel {
             width: 90vw;
-            height: 90vh;
-            background-color: #f4f4f4;
-            display: block;
+            height: 200px;
+            overflow-y: auto;
+            border-radius: 8px;
             border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            background: #ffffff;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #logList {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        /* Request Form */
+        .request-form {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .request-form h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="logPanel" style="width: 90vw; height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f9f9f9;">
-    <h3>🚀 Transport Log</h3>
-    <ul id="logList" style="list-style-type: none; padding: 0;"></ul>
-</div>
-    <h1>Hospital Transport System</h1>
-    <div class="controls">
-        <label for="transporterSelect">Choose a Transporter:</label>
-        <select id="transporterSelect"></select>
-
-        <label for="requestSelect">Choose a Transport Request:</label>
-        <select id="requestSelect"></select>
-
-        <input type="text" id="transporterName" placeholder="Transporter Name">
-        <button onclick="addTransporter()">Add Transporter</button>
-
-        <button onclick="initiateTransport()">Initiate Patient Transport</button>
-        <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
-        <button onclick="deployOptimization()">Deploy Optimization</button>
-
+    <div id="logPanel">
+        <h3>🚑 Transport Log</h3>
+        <ul id="logList"></ul>
     </div>
-    <div class="request-form">
-    <h3>Create New Transport Request</h3>
 
-    <label for="originDropdown">Origin:</label>
-    <select id="originDropdown"></select>
+    <h1>Hospital Transport System</h1>
 
-    <label for="destinationDropdown">Destination:</label>
-    <select id="destinationDropdown"></select>
+    <div class="controls">
+    <label for="transporterSelect">Choose a Transporter:</label>
+    <select id="transporterSelect"></select>
 
-    <label for="typeDropdown">Transport Type:</label>
-    <select id="typeDropdown">
-        <option value="stretcher">Stretcher</option>
-        <option value="wheelchair">Wheelchair</option>
+    <!-- 🚀 New Status Dropdown & Button -->
+    <label for="statusDropdown">Set Transporter Status:</label>
+    <select id="statusDropdown">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
     </select>
+    <button onclick="setTransporterStatus()">Update Status</button>
+    <!-- 🚀 End New Status Dropdown -->
 
-    <label for="urgentDropdown">Urgency:</label>
-    <select id="urgentDropdown">
-        <option value="true">Urgent</option>
-        <option value="false">Not Urgent</option>
-    </select>
+    <label for="requestSelect">Choose a Transport Request:</label>
+    <select id="requestSelect"></select>
 
-    <button onclick="createRequest()">Create Request</button>
+    <input type="text" id="transporterName" placeholder="Transporter Name">
+    <button onclick="addTransporter()">Add Transporter</button>
+
+    <button onclick="initiateTransport()">Initiate Patient Transport</button>
+    <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
+    <button onclick="deployOptimization()">Deploy Optimization</button>
 </div>
+
+
+    <div class="request-form">
+        <h3>Create New Transport Request</h3>
+
+        <label for="originDropdown">Origin:</label>
+        <select id="originDropdown"></select>
+
+        <label for="destinationDropdown">Destination:</label>
+        <select id="destinationDropdown"></select>
+
+        <label for="typeDropdown">Transport Type:</label>
+        <select id="typeDropdown">
+            <option value="stretcher">Stretcher</option>
+            <option value="wheelchair">Wheelchair</option>
+        </select>
+
+        <label for="urgentDropdown">Urgency:</label>
+        <select id="urgentDropdown">
+            <option value="true">Urgent</option>
+            <option value="false">Not Urgent</option>
+        </select>
+
+        <button onclick="createRequest()">Create Request</button>
+    </div>
 
     <svg viewBox="-100 -100 1400 1000"></svg>
 
@@ -212,23 +300,72 @@
     .catch(error => console.error("Error:", error));
 }
 
-        function loadTransporters() {
-            fetch("http://127.0.0.1:5001/get_transporters")
-                .then(response => response.json())
-                .then(data => {
-                    let select = document.getElementById("transporterSelect");
-                    select.innerHTML = "";
-                    data.forEach(trans => {
-                        let option = document.createElement("option");
-                        option.value = trans.name;
-                        option.textContent = trans.name;
-                        select.appendChild(option);
-                        transporters[trans.name] = trans.current_location;
+function setTransporterStatus() {
+    let transporterName = document.getElementById("transporterSelect").value;
+    let status = document.getElementById("statusDropdown").value;
 
-                        createTransporterVisual(trans.name, trans.current_location);
-                    });
-                });
-        }
+    if (!transporterName) {
+        alert("❌ Please select a transporter.");
+        return;
+    }
+
+    fetch("http://127.0.0.1:5001/set_transporter_status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transporter: transporterName, status })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.status);
+        loadTransporters();  // Refresh transporter list
+    })
+    .catch(error => console.error("❌ Error:", error));
+}
+
+function createTransporterVisual(name, location, color = "red") {
+    let nodeElement = document.querySelector(`[data-node='${location}']`);
+    if (!nodeElement) {
+        console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
+        return;
+    }
+
+    let x = parseFloat(nodeElement.getAttribute("cx"));
+    let y = parseFloat(nodeElement.getAttribute("cy"));
+
+    console.log(`🚛 Creating transporter ${name} at (${x}, ${y})`);
+
+    transporterNodes[name] = svg.append("circle")
+        .attr("class", "transporter")
+        .attr("r", 10)
+        .attr("cx", x)
+        .attr("cy", y)
+        .attr("fill", color)
+        .attr("data-transporter", name);
+}
+
+       function loadTransporters() {
+    fetch("http://127.0.0.1:5001/get_transporters")
+        .then(response => response.json())
+        .then(data => {
+            let select = document.getElementById("transporterSelect");
+            select.innerHTML = "";
+
+            data.forEach(trans => {
+                // Only add active transporters to dropdown
+                if (trans.status === "active") {
+                    let option = document.createElement("option");
+                    option.value = trans.name;
+                    option.textContent = trans.name;
+                    select.appendChild(option);
+                }
+
+                // Update transporter status visually
+                let color = trans.status === "active" ? "red" : "gray"; // Inactive transporters appear gray
+                createTransporterVisual(trans.name, trans.current_location, color);
+            });
+        });
+}
+
         function loadDepartmentDropdowns() {
     fetch("http://127.0.0.1:5001/get_hospital_graph")
         .then(response => response.json())
@@ -304,9 +441,23 @@ function removeRequest(requestKey) {
 }
 
 socket.on("transport_completed", function (data) {
-    console.log("✅ Transport completed:", data.transporter);
-    loadTransportRequests(); // 🔄 Refresh dropdown to remove completed requests
+    console.log("🚀 Transport completed:", data);
+
+    let logList = document.getElementById("logList");
+    let logEntry = document.createElement("li");
+    logEntry.textContent = `🏁 ${data.transporter} has completed their transport.`;
+
+    logList.appendChild(logEntry);
+    logList.scrollTop = logList.scrollHeight; // 🔄 Auto-scroll to latest log
+
+    loadTransportRequests(); // 🔄 Refresh available requests
 });
+socket.on("transporter_status_update", function (data) {
+    console.log("🔄 Transporter status update:", data);
+    loadTransporters(); // Refresh transporter list
+});
+
+
 socket.on("new_transporter", function (data) {
     console.log("🚑 New transporter added:", data);
     loadTransporters(); // Laddar om dropdown-listan
@@ -327,21 +478,34 @@ socket.on("transport_assigned", function (data) {
 });
 
 
+
         function loadTransportRequests() {
-            fetch("http://127.0.0.1:5001/get_transport_requests")
-                .then(response => response.json())
-                .then(data => {
-                    let select = document.getElementById("requestSelect");
-                    select.innerHTML = "";
-                    data.forEach(req => {
-                        let option = document.createElement("option");
-                        option.value = `${req.origin}-${req.destination}`;
-                        option.textContent = `${req.transport_type} from ${req.origin} to ${req.destination}`;
-                        select.appendChild(option);
-                        transportRequests[option.value] = req;
-                    });
-                });
-        }
+    fetch("http://127.0.0.1:5001/get_transport_requests")
+        .then(response => response.json())
+        .then(data => {
+            let select = document.getElementById("requestSelect");
+            select.innerHTML = ""; // Clear dropdown
+
+            if (!data.pending || data.pending.length === 0) {
+                console.warn("⚠️ No pending requests available.");
+                return;
+            }
+
+            data.pending.forEach(req => {
+                let option = document.createElement("option");
+                option.value = `${req.origin}-${req.destination}`;
+                option.textContent = `${req.transport_type} from ${req.origin} to ${req.destination}`;
+                select.appendChild(option);
+                transportRequests[option.value] = req; // Store in global object
+            });
+
+            console.log("✅ Transport requests loaded successfully.");
+        })
+        .catch(error => console.error("❌ Error loading transport requests:", error));
+}
+
+
+
 
         function createTransporterVisual(name, location) {
             let nodeElement = document.querySelector(`[data-node='${location}']`);
@@ -401,30 +565,43 @@ socket.on("transport_assigned", function (data) {
         });
 
         function initiateTransport() {
-            let transporterName = document.getElementById("transporterSelect").value;
-            let requestValue = document.getElementById("requestSelect").value;
-            let requestObj = transportRequests[requestValue];
+    let transporterName = document.getElementById("transporterSelect").value;
+    let requestValue = document.getElementById("requestSelect").value;
+    let requestObj = transportRequests[requestValue]; // ⬅️ Ensure we get it from pending requests
 
-            if (!transporterName || !requestObj) {
-                console.error("⚠️ Missing transporter or transport request selection.");
-                return;
-            }
+    if (!transporterName || !requestObj) {
+        console.error("⚠️ Missing transporter or transport request selection.");
+        alert("Please select both a transporter and a request.");
+        return;
+    }
 
-            fetch("http://127.0.0.1:5001/assign_transport", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    transporter: transporterName,
-                    origin: requestObj.origin,
-                    destination: requestObj.destination,
-                    transport_type: requestObj.transport_type,
-                    urgent: requestObj.urgent
-                })
-            })
-            .then(response => response.json())
-            .then(data => console.log("✅ Response:", data))
-            .catch(error => console.error("❌ Error:", error));
+    console.log(`🛫 Assigning ${transporterName} to transport from ${requestObj.origin} to ${requestObj.destination}`);
+
+    fetch("http://127.0.0.1:5001/assign_transport", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            transporter: transporterName,
+            origin: requestObj.origin,
+            destination: requestObj.destination,
+            transport_type: requestObj.transport_type,
+            urgent: requestObj.urgent
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("✅ Response:", data);
+        if (data.error) {
+            alert("❌ Error: " + data.error);
+        } else {
+            alert(data.status || "Transport initiated!");
+            loadTransportRequests(); // 🔄 Refresh available transport requests
         }
+    })
+    .catch(error => console.error("❌ Error:", error));
+}
+
+
 
         window.onload = function () {
             loadHospitalGraph();

@@ -18,7 +18,9 @@ class HospitalController:
         """Initialize hospital model, transporters, and viewer."""
         self.model = Hospital()
         self.transporters = []
-        self.transport_requests = []
+        self.pending_requests = []  # Stores requests waiting for assignment
+        self.ongoing_requests = []  # Stores currently executing requests
+        self.completed_requests = []  # Stores completed requests
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
 
@@ -35,6 +37,8 @@ class HospitalController:
         self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests, methods=["GET"])
         self.app.add_url_rule("/deploy_optimization", "deploy_optimization", self.deploy_optimization, methods=["POST"])
         self.app.add_url_rule("/add_transporter", "add_transporter", self.add_transporter, methods=["POST"])
+        self.app.add_url_rule("/set_transporter_status", "set_transporter_status", self.set_transporter_status,
+                              methods=["POST"])
 
     def index(self):
         """Serves the frontend page."""
@@ -51,9 +55,33 @@ class HospitalController:
 
         return weight
 
+    def get_request_by_status(self, status):
+        """Returns requests filtered by status."""
+        if status == "pending":
+            return self.pending_requests
+        elif status == "ongoing":
+            return self.ongoing_requests
+        elif status == "completed":
+            return self.completed_requests
+        return []
+
+    def move_request_to_ongoing(self, request_obj):
+        """Moves a request from pending to ongoing."""
+        if request_obj in self.pending_requests:
+            self.pending_requests.remove(request_obj)
+            self.ongoing_requests.append(request_obj)
+            request_obj.mark_as_ongoing()
+
+    def mark_request_completed(self, request_obj):
+        """Marks an ongoing request as completed and moves it to completed_requests."""
+        if request_obj in self.ongoing_requests:
+            self.ongoing_requests.remove(request_obj)
+            self.completed_requests.append(request_obj)
+            request_obj.mark_as_completed()
+
     def deploy_optimization(self):
-        """Runs ILP optimization and executes transport assignments in parallel."""
-        optimizer = ILPOptimizer(self.transporters, self.transport_requests, self.model.get_graph())
+        """Runs ILP optimization and assigns transporters in parallel."""
+        optimizer = ILPOptimizer(self.transporters, self.pending_requests, self.model.get_graph())
         optimal_assignments = optimizer.optimize_transport_schedule()
 
         if not optimal_assignments:
@@ -61,16 +89,13 @@ class HospitalController:
 
         for t_name, origin, destination in optimal_assignments:
             transporter = next(t for t in self.transporters if t.name == t_name)
-            request_obj = next(
-                r for r in self.transport_requests if r.origin == origin and r.destination == destination)
+            request_obj = next(r for r in self.pending_requests if r.origin == origin and r.destination == destination)
 
             print(f"🚀 Deploying {transporter.name} for transport from {origin} to {destination}")
 
-            # ✅ Emit initial position **before** moving
             self.socketio.emit("transporter_update",
                                {"name": transporter.name, "location": transporter.current_location})
 
-            # 🔥 Run transport assignments in parallel
             eventlet.spawn_n(self.assign_transport, transporter, request_obj)
 
         return jsonify({"status": "Optimization deployed, transporters are moving simultaneously!"})
@@ -81,14 +106,50 @@ class HospitalController:
 
     def get_transporters(self):
         """Returns a list of available transporters with their current locations."""
-        return jsonify([{"name": t.name, "current_location": t.current_location} for t in self.transporters])
+        return jsonify([{
+            "name": t.name,
+            "current_location": t.current_location,
+            "status": t.status  # 🔹 Ensure status is sent
+        } for t in self.transporters])
 
     def get_transport_requests(self):
-        """Returns a list of available transport requests."""
-        return jsonify([
-            {"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type, "urgent": r.urgent}
-            for r in self.transport_requests
-        ])
+        """Returns categorized transport requests (pending, ongoing, completed)."""
+        return jsonify({
+            "pending": [
+                {"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type,
+                 "urgent": r.urgent}
+                for r in self.pending_requests
+            ],
+            "ongoing": [
+                {"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type,
+                 "urgent": r.urgent}
+                for r in self.ongoing_requests
+            ],
+            "completed": [
+                {"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type,
+                 "urgent": r.urgent}
+                for r in self.completed_requests
+            ]
+        })
+
+    def set_transporter_status(self):
+        """Allows toggling a transporter's active/inactive status via frontend."""
+        data = request.get_json()
+        transporter_name = data.get("transporter")
+        status = data.get("status")
+
+        transporter, error_response, status_code = self.get_transporter(transporter_name)
+        if error_response:
+            return error_response, status_code
+
+        if status == "active":
+            transporter.set_active()
+        elif status == "inactive":
+            transporter.set_inactive()
+        else:
+            return jsonify({"error": "Invalid status. Use 'active' or 'inactive'."}), 400
+
+        return jsonify({"status": f"{transporter.name} is now {status}."})
 
     def get_transporter(self, transporter_name):
         """Finds a transporter by name."""
@@ -117,6 +178,46 @@ class HospitalController:
 
             print(f"📍 {transporter.name} moving from {current_node} to {next_node}, will take {travel_time} seconds")
             eventlet.sleep(travel_time)  # ⏳ Fördröjning baserat på vikt
+
+    def process_transport(self, transporter, request_obj):
+        """Handles the actual movement of the transporter along the path."""
+        graph = self.model.get_graph()
+
+        path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
+        path_to_destination, _ = transporter.pathfinder.dijkstra(request_obj.origin, request_obj.destination)
+
+        full_path = list(path_to_origin[:-1]) + list(path_to_destination)  # Ensure path uniqueness
+
+        if not full_path:
+            print(f"❌ No valid path found for {transporter.name}. Aborting transport.")
+            return
+
+        print(f"🚛 {transporter.name} moving along: {full_path}")
+
+        transporter.lock = getattr(transporter, "lock", eventlet.semaphore.Semaphore())
+
+        for i in range(len(full_path) - 1):
+            current_node = full_path[i]
+            next_node = full_path[i + 1]
+
+            travel_time = graph.get_edge_weight(current_node, next_node)
+
+            with transporter.lock:
+                transporter.current_location = next_node
+
+            self.socketio.emit("transporter_update", {"name": transporter.name, "location": next_node})
+            print(f"📍 {transporter.name} moved to {next_node}, travel time: {travel_time}s")
+
+            eventlet.sleep(travel_time)  # Simulate movement time
+
+        # ✅ Move request from ongoing to completed
+        if request_obj in self.ongoing_requests:
+            self.ongoing_requests.remove(request_obj)
+            self.completed_requests.append(request_obj)
+            print(f"✅ Transport request {request_obj.origin} ➝ {request_obj.destination} completed and archived.")
+
+        # 🔥 Notify frontend that transport is completed
+        self.socketio.emit("transport_completed", {"transporter": transporter.name})
 
     def return_home(self):
         """Returns a transporter to the lounge when the button is clicked."""
@@ -153,14 +254,18 @@ class HospitalController:
         if error_response:
             return error_response, status_code
 
-        request_obj = next((r for r in self.transport_requests if r.origin == origin and r.destination == destination), None)
+        request_obj = next((r for r in self.pending_requests if r.origin == origin and r.destination == destination),
+                           None)
         if not request_obj:
             return jsonify({"error": "Transport request not found with given origin and destination."}), 400
 
         return self.assign_transport(transporter, request_obj)
 
     def assign_transport(self, transporter, request_obj):
-        """Assigns a transport request to a transporter and moves step-by-step with weight-based timing."""
+        """Assigns a transport request to a transporter and moves them step-by-step."""
+        if transporter.status == "inactive":
+            return jsonify({"error": f"❌ {transporter.name} is currently inactive and cannot be assigned a task."}), 400
+
         graph = self.model.get_graph()
 
         path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
@@ -173,7 +278,9 @@ class HospitalController:
 
         print(f"🚑 {transporter.name} assigned transport: {request_obj.origin} ➝ {request_obj.destination}")
 
-        # 🔥 Emit event to frontend with assignment details
+        # 🔥 Mark request as ongoing
+        request_obj.status = "ongoing"
+
         self.socketio.emit("transport_assigned", {
             "transporter": transporter.name,
             "origin": request_obj.origin,
@@ -182,29 +289,14 @@ class HospitalController:
             "urgent": request_obj.urgent
         })
 
-        # 🔥 Ensure each transporter has its own lock
-        transporter.lock = getattr(transporter, "lock", eventlet.semaphore.Semaphore())
+        transporter.move_to(request_obj.origin)
+        transporter.move_to(request_obj.destination)
 
-        self.socketio.emit("transporter_update", {"name": transporter.name, "location": transporter.current_location})
+        # ✅ Move request to completed list
+        self.completed_requests.append(request_obj)
+        self.pending_requests.remove(request_obj)
 
-        for i in range(len(full_path) - 1):
-            current_node = full_path[i]
-            next_node = full_path[i + 1]
-
-            travel_time = graph.get_edge_weight(current_node, next_node)
-
-            with transporter.lock:
-                transporter.current_location = next_node
-
-            self.socketio.emit("transporter_update", {"name": transporter.name, "location": next_node})
-            print(f"📍 {transporter.name} moved to {next_node}, travel time: {travel_time}s")
-
-            eventlet.sleep(travel_time)
-
-        if request_obj in self.transport_requests:
-            self.transport_requests.remove(request_obj)
-            print(f"✅ Transport request {request_obj.origin} ➝ {request_obj.destination} completed and removed.")
-            self.socketio.emit("transport_completed", {"transporter": transporter.name})
+        self.socketio.emit("transport_completed", {"transporter": transporter.name})
 
         return jsonify({"status": f"Transport assigned to {transporter.name}!"})
 
@@ -235,26 +327,27 @@ class HospitalController:
 
     def create_transporter(self, name):
         """Create and store a transporter."""
-        self.transporters.append(PatientTransporter(self.model, name, start_location="Transporter Lounge"))
+        self.transporters.append(
+            PatientTransporter(self.model, name, self.socketio, start_location="Transporter Lounge"))
 
     def add_transporter(self):
-        """Lägger till en ny patienttransportör via frontend genom att anropa create_transporter()."""
+        """Adds a new patient transporter via frontend."""
         data = request.get_json()
         transporter_name = data.get("name")
 
         if not transporter_name:
             return jsonify({"error": "Transporter name is required"}), 400
 
-        # Kontrollera om transportören redan finns
+        # 🔥 Check if transporter already exists
         if any(t.name == transporter_name for t in self.transporters):
             return jsonify({"error": "A transporter with this name already exists"}), 400
 
-        # 🔥 Återanvänd befintlig metod för att skapa transportören
+        # 🔹 Pass `self.socketio` when creating transporter
         self.create_transporter(transporter_name)
 
         print(f"🚑 New transporter added via frontend: {transporter_name}")
 
-        # Uppdatera frontend i realtid
+        # 🔥 Update frontend in real-time
         self.socketio.emit("new_transporter", {"name": transporter_name, "current_location": "Transporter Lounge"})
 
         return jsonify({"status": f"Transporter {transporter_name} added successfully!"})
@@ -264,10 +357,7 @@ class HospitalController:
         data = request.get_json()
         request_key = data.get("requestKey")
 
-        if not request_key:
-            return jsonify({"error": "Request key is required"}), 400
-
-        self.transport_requests = [r for r in self.transport_requests if f"{r.origin}-{r.destination}" != request_key]
+        self.completed_requests = [r for r in self.completed_requests if f"{r.origin}-{r.destination}" != request_key]
 
         return jsonify({"status": f"Request {request_key} removed."})
 
@@ -275,7 +365,7 @@ class HospitalController:
         """Creates a transport request manually (backend usage) or via API."""
         request_obj = TransportationRequest(request_time=None, origin=origin, destination=destination,
                                             transport_type=transport_type, urgent=urgent)
-        self.transport_requests.append(request_obj)
+        self.pending_requests.append(request_obj)
 
         response_message = f"Request from {origin} to {destination} created!"
 
