@@ -1,3 +1,5 @@
+import eventlet
+import eventlet.wsgi
 from flask import request, jsonify
 from flask_socketio import SocketIO
 
@@ -6,12 +8,13 @@ class HospitalTransportViewer:
     def __init__(self, app):
         """Initialize WebSocket communication using Flask-SocketIO and attach it to an existing Flask app."""
         self.app = app
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
         self.transporters = {}  # Dictionary to store transporter movements
 
         # Define routes within the existing Flask app
         self.app.add_url_rule("/update_transporter", "update_transporter", self.update_transporter, methods=["POST"])
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters)
+
 
     def emit_transporter_update(self, name, path):
         """Send a transport update to the frontend."""

@@ -1,3 +1,6 @@
+import eventlet
+eventlet.monkey_patch()
+import eventlet.wsgi
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 from hospital_model import Hospital
@@ -13,7 +16,7 @@ class HospitalController:
         self.transporters = []
         self.transport_requests = []
         self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+        self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
 
         # Define API routes
         self.app.add_url_rule("/", "index", self.index)
@@ -143,7 +146,9 @@ class HospitalController:
         print("📦 Created transport requests: Emergency to ICU, Reception to Radiology")
 
         print("🚀 Hospital system running on http://127.0.0.1:5001")
-        self.socketio.run(self.app, host="127.0.0.1", port=5001, debug=False, use_reloader=False)
+
+        # Run with eventlet
+        eventlet.wsgi.server(eventlet.listen(("127.0.0.1", 5001)), self.app)
 
 
 if __name__ == "__main__":
