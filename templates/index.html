@@ -231,8 +231,7 @@
         });
 }
         function deployOptimization() {
-    console.log("🚀 Deploying Optimization...");
-
+    logEvent("🚀 Deploying Optimization...");
     fetch("http://127.0.0.1:5001/deploy_optimization", {
         method: "POST",
         headers: { "Content-Type": "application/json" }
@@ -240,19 +239,19 @@
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert("❌ Optimization Failed: " + data.error);
+            logEvent(`❌ Optimization Failed: ${data.error}`, "error");
         } else {
-            alert("✅ Optimization Deployed! Transporters are moving.");
+            logEvent("✅ Optimization Deployed! Transporters are moving.", "success");
             loadTransportRequests(); // Refresh dropdowns
         }
     })
-    .catch(error => console.error("❌ Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
+
         function addTransporter() {
     let transporterName = document.getElementById("transporterName").value.trim();
-
     if (!transporterName) {
-        alert("❌ Please enter a transporter name.");
+        logEvent("❌ Please enter a transporter name.", "error");
         return;
     }
 
@@ -264,40 +263,37 @@
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert("❌ Error: " + data.error);
+            logEvent(`❌ Error: ${data.error}`, "error");
         } else {
-            alert("✅ Transporter added successfully!");
+            logEvent(`✅ Transporter ${transporterName} added successfully!`, "success");
             document.getElementById("transporterName").value = ""; // Rensa fältet
             loadTransporters(); // Uppdatera dropdown-listan
         }
     })
-    .catch(error => console.error("❌ Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
 
         function returnHome() {
     const selectedTransporter = document.getElementById("transporterSelect").value;
-
     if (!selectedTransporter) {
-        alert("Please select a transporter first.");
+        logEvent("❌ Please select a transporter first.", "error");
         return;
     }
 
     fetch("/return_home", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transporter: selectedTransporter })
     })
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert("Error: " + data.error);
+            logEvent(`❌ Error: ${data.error}`, "error");
         } else {
-            alert(data.status);
+            logEvent(`🏠 ${selectedTransporter} has returned home.`, "success");
         }
     })
-    .catch(error => console.error("Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
 
 function setTransporterStatus() {
@@ -305,7 +301,7 @@ function setTransporterStatus() {
     let status = document.getElementById("statusDropdown").value;
 
     if (!transporterName) {
-        alert("❌ Please select a transporter.");
+        logEvent("❌ Please select a transporter.", "error");
         return;
     }
 
@@ -316,10 +312,10 @@ function setTransporterStatus() {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.status);
+        logEvent(`🔄 Status for ${transporterName} updated to ${status.toUpperCase()}.`, "info");
         loadTransporters();  // Refresh transporter list
     })
-    .catch(error => console.error("❌ Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
 
 function createTransporterVisual(name, location, color = "red") {
@@ -408,7 +404,7 @@ function createTransporterVisual(name, location, color = "red") {
     let urgent = document.getElementById("urgentDropdown").value === "true";
 
     if (!origin || !destination || origin === destination) {
-        alert("Please select a valid origin and destination.");
+        logEvent("❌ Please select a valid origin and destination.", "error");
         return;
     }
 
@@ -419,10 +415,10 @@ function createTransporterVisual(name, location, color = "red") {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.status || "Request created successfully!");
+        logEvent(`📦 Transport request from ${origin} to ${destination} created.`, "success");
         loadTransportRequests();  // 🔹 Refresh the request list
     })
-    .catch(error => console.error("❌ Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
 
 
@@ -588,18 +584,34 @@ socket.on("transport_assigned", function (data) {
             updateTransporterVisual(transporterName, newLocation);
         });
 
+function logEvent(message, type = "info") {
+    let logList = document.getElementById("logList");
+    let logEntry = document.createElement("li");
+
+    // Add timestamp for better tracking
+    let timestamp = new Date().toLocaleTimeString();
+    logEntry.textContent = `[${timestamp}] ${message}`;
+
+    // Different styles for different log types
+    if (type === "error") logEntry.style.color = "red";
+    else if (type === "success") logEntry.style.color = "green";
+
+    logList.appendChild(logEntry);
+    logList.scrollTop = logList.scrollHeight;  // Auto-scroll to latest log
+}
+
+
         function initiateTransport() {
     let transporterName = document.getElementById("transporterSelect").value;
     let requestValue = document.getElementById("requestSelect").value;
-    let requestObj = transportRequests[requestValue]; // ⬅️ Ensure we get it from pending requests
+    let requestObj = transportRequests[requestValue];
 
     if (!transporterName || !requestObj) {
-        console.error("⚠️ Missing transporter or transport request selection.");
-        alert("Please select both a transporter and a request.");
+        logEvent("❌ Please select both a transporter and a request.", "error");
         return;
     }
 
-    console.log(`🛫 Assigning ${transporterName} to transport from ${requestObj.origin} to ${requestObj.destination}`);
+    logEvent(`🛫 Assigning ${transporterName} to transport from ${requestObj.origin} to ${requestObj.destination}`);
 
     fetch("http://127.0.0.1:5001/assign_transport", {
         method: "POST",
@@ -614,16 +626,16 @@ socket.on("transport_assigned", function (data) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log("✅ Response:", data);
         if (data.error) {
-            alert("❌ Error: " + data.error);
+            logEvent(`❌ Error: ${data.error}`, "error");
         } else {
-            alert(data.status || "Transport initiated!");
+            logEvent(`✅ ${transporterName} started transport from ${requestObj.origin} to ${requestObj.destination}.`, "success");
             loadTransportRequests(); // 🔄 Refresh available transport requests
         }
     })
-    .catch(error => console.error("❌ Error:", error));
+    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
+
 
 
 
