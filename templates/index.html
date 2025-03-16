@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Transport Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        select, button {
+            padding: 10px;
+            font-size: 16px;
+        }
+        .node {
+            fill: lightblue;
+            stroke: #333;
+            stroke-width: 2px;
+        }
+        .link {
+            stroke: #777;
+            stroke-width: 2px;
+        }
+        .transporter {
+            fill: red;
+            stroke: black;
+            stroke-width: 2px;
+        }
+        text {
+            font-size: 14px;
+            fill: black;
+            font-weight: bold;
+        }
+        svg {
+            width: 90vw;
+            height: 90vh;
+            background-color: #f4f4f4;
+            display: block;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Hospital Transport System</h1>
+    <div class="controls">
+        <label for="transporterSelect">Choose a Transporter:</label>
+        <select id="transporterSelect"></select>
+
+        <label for="requestSelect">Choose a Transport Request:</label>
+        <select id="requestSelect"></select>
+
+        <button onclick="initiateTransport()">Initiate Patient Transport</button>
+    </div>
+
+    <svg viewBox="-100 -100 1400 1000"></svg>
+
+    <script>
+        var svg = d3.select("svg"), width = 1400, height = 1000;
+        var transporters = {}, transportRequests = {}, transporterNodes = {};
+        var socket = io("http://127.0.0.1:5001");
+
+        function loadHospitalGraph() {
+            fetch("http://127.0.0.1:5001/get_hospital_graph")
+                .then(response => response.json())
+                .then(graph => {
+                    let nodesMap = new Map(graph.nodes.map(n => [n.id, { id: n.id, x: n.x, y: n.y }]));
+
+                    let edges = graph.edges.map(e => ({
+                        source: nodesMap.get(e.source),
+                        target: nodesMap.get(e.target),
+                        weight: e.distance
+                    }));
+
+                    svg.append("g").selectAll("line").data(edges).enter().append("line")
+                        .attr("class", "link")
+                        .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+
+                    svg.append("g").selectAll("circle").data([...nodesMap.values()]).enter().append("circle")
+                        .attr("class", "node").attr("r", 20)
+                        .attr("cx", d => d.x).attr("cy", d => d.y)
+                        .attr("data-node", d => d.id);
+
+                    svg.append("g").selectAll("text").data([...nodesMap.values()]).enter().append("text")
+                        .attr("x", d => d.x + 10).attr("y", d => d.y - 10).text(d => d.id);
+                });
+        }
+
+        function loadTransporters() {
+            fetch("http://127.0.0.1:5001/get_transporters")
+                .then(response => response.json())
+                .then(data => {
+                    let select = document.getElementById("transporterSelect");
+                    select.innerHTML = "";
+                    data.forEach(trans => {
+                        let option = document.createElement("option");
+                        option.value = trans.name;
+                        option.textContent = trans.name;
+                        select.appendChild(option);
+                        transporters[trans.name] = trans.current_location;
+
+                        createTransporterVisual(trans.name, trans.current_location);
+                    });
+                });
+        }
+
+        function loadTransportRequests() {
+            fetch("http://127.0.0.1:5001/get_transport_requests")
+                .then(response => response.json())
+                .then(data => {
+                    let select = document.getElementById("requestSelect");
+                    select.innerHTML = "";
+                    data.forEach(req => {
+                        let option = document.createElement("option");
+                        option.value = `${req.origin}-${req.destination}`;
+                        option.textContent = `${req.transport_type} from ${req.origin} to ${req.destination}`;
+                        select.appendChild(option);
+                        transportRequests[option.value] = req;
+                    });
+                });
+        }
+
+        function createTransporterVisual(name, location) {
+            let nodeElement = document.querySelector(`[data-node='${location}']`);
+
+            if (!nodeElement) {
+                console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
+                return;
+            }
+
+            let x = parseFloat(nodeElement.getAttribute("cx"));
+            let y = parseFloat(nodeElement.getAttribute("cy"));
+
+            console.log(`🚛 Creating transporter ${name} at (${x}, ${y})`);
+
+            transporterNodes[name] = svg.append("circle")
+                .attr("class", "transporter")
+                .attr("r", 10)
+                .attr("cx", x)
+                .attr("cy", y)
+                .attr("fill", "red")
+                .attr("data-transporter", name);
+        }
+
+        function updateTransporterVisual(name, newLocation) {
+            let nodeElement = document.querySelector(`[data-node='${newLocation}']`);
+            let transporterElement = d3.select(`[data-transporter='${name}']`);
+
+            if (!nodeElement || transporterElement.empty()) {
+                console.error(`❌ Error: Node '${newLocation}' or transporter '${name}' not found for movement.`);
+                return;
+            }
+
+            let x = parseFloat(nodeElement.getAttribute("cx"));
+            let y = parseFloat(nodeElement.getAttribute("cy"));
+
+            console.log(`📍 Moving transporter ${name} to ${newLocation} at (${x}, ${y})`);
+
+            transporterElement
+                .transition()
+                .duration(1000)
+                .attr("cx", x)
+                .attr("cy", y)
+                .on("end", () => console.log(`✅ ${name} arrived at (${x}, ${y})`));
+        }
+
+        socket.on("transporter_update", function (data) {
+            console.log("🚀 Transporter update received:", data);
+            let transporterName = data.name;
+            let newLocation = data.location;
+
+            if (!transporterNodes[transporterName]) {
+                console.error("⚠️ Transporter element not found in visualization for", transporterName);
+                return;
+            }
+
+            updateTransporterVisual(transporterName, newLocation);
+        });
+
+        function initiateTransport() {
+            let transporterName = document.getElementById("transporterSelect").value;
+            let requestValue = document.getElementById("requestSelect").value;
+            let requestObj = transportRequests[requestValue];
+
+            if (!transporterName || !requestObj) {
+                console.error("⚠️ Missing transporter or transport request selection.");
+                return;
+            }
+
+            fetch("http://127.0.0.1:5001/assign_transport", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    transporter: transporterName,
+                    origin: requestObj.origin,
+                    destination: requestObj.destination,
+                    transport_type: requestObj.transport_type,
+                    urgent: requestObj.urgent
+                })
+            })
+            .then(response => response.json())
+            .then(data => console.log("✅ Response:", data))
+            .catch(error => console.error("❌ Error:", error));
+        }
+
+        window.onload = function () {
+            loadHospitalGraph();
+            loadTransporters();
+            loadTransportRequests();
+        };
+    </script>
+</body>
+</html>
