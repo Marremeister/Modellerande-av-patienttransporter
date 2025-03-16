@@ -466,6 +466,30 @@ socket.on("transporter_update", function (data) {
     console.log("🚀 Transporter update received:", data);
     updateTransporterVisual(data.name, data.location);
 });
+
+socket.on("transport_status_update", function (data) {
+    console.log("🚀 Transport status update received:", data);
+
+    let requestKey = `${data.request.origin}-${data.request.destination}`;
+
+    // 🔥 Remove from dropdown immediately
+    let select = document.getElementById("requestSelect");
+    let options = select.options;
+
+    for (let i = 0; i < options.length; i++) {
+        if (options[i].value === requestKey) {
+            console.log(`❌ Removing request: ${requestKey}`);
+            select.remove(i);
+            break;
+        }
+    }
+
+    // 🔄 Auto-refresh dropdowns
+    loadTransportRequests();
+});
+
+
+
 socket.on("transport_assigned", function (data) {
     console.log("📝 Transport assigned:", data);
 
@@ -484,25 +508,25 @@ socket.on("transport_assigned", function (data) {
         .then(response => response.json())
         .then(data => {
             let select = document.getElementById("requestSelect");
-            select.innerHTML = ""; // Clear dropdown
+            select.innerHTML = ""; // Clear existing options
 
-            if (!data.pending || data.pending.length === 0) {
-                console.warn("⚠️ No pending requests available.");
-                return;
-            }
+            console.log("🔄 Loading Transport Requests:", data);
 
+            // Only load "pending" requests
             data.pending.forEach(req => {
                 let option = document.createElement("option");
                 option.value = `${req.origin}-${req.destination}`;
                 option.textContent = `${req.transport_type} from ${req.origin} to ${req.destination}`;
                 select.appendChild(option);
-                transportRequests[option.value] = req; // Store in global object
+                transportRequests[option.value] = req;
             });
 
-            console.log("✅ Transport requests loaded successfully.");
+            console.log("✅ Requests loaded into dropdown.");
         })
         .catch(error => console.error("❌ Error loading transport requests:", error));
 }
+
+
 
 
 
