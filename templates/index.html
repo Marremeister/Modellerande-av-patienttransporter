@@ -61,6 +61,7 @@
 
         <button onclick="initiateTransport()">Initiate Patient Transport</button>
         <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
+        <button onclick="deployOptimization()">Deploy Optimization</button>
 
     </div>
     <div class="request-form">
@@ -133,6 +134,24 @@
             svg.append("g").selectAll("text").data([...nodesMap.values()]).enter().append("text")
                 .attr("x", d => d.x + 10).attr("y", d => d.y - 10).text(d => d.id);
         });
+}
+        function deployOptimization() {
+    console.log("🚀 Deploying Optimization...");
+
+    fetch("http://127.0.0.1:5001/deploy_optimization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert("❌ Optimization Failed: " + data.error);
+        } else {
+            alert("✅ Optimization Deployed! Transporters are moving.");
+            loadTransportRequests(); // Refresh dropdowns
+        }
+    })
+    .catch(error => console.error("❌ Error:", error));
 }
 
         function returnHome() {

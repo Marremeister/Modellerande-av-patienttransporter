@@ -6,6 +6,7 @@ from flask_socketio import SocketIO
 from hospital_model import Hospital
 from model_patient_transporters import PatientTransporter
 from model_transportation_request import TransportationRequest
+from ilp_optimizer import ILPOptimizer
 
 
 class HospitalController:
@@ -28,6 +29,7 @@ class HospitalController:
         self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters, methods=["GET"])
         self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests, methods=["GET"])
+        self.app.add_url_rule("/deploy_optimization", "deploy_optimization", self.deploy_optimization, methods=["POST"])
 
     def index(self):
         """Serves the frontend page."""
@@ -43,6 +45,26 @@ class HospitalController:
             weight = 1  # Standardvärde om ingen vikt finns
 
         return weight
+
+    def deploy_optimization(self):
+        """Runs ILP optimization and executes transporters in parallel."""
+        optimizer = ILPOptimizer(self.transporters, self.transport_requests, self.model.get_graph())
+        optimal_assignments = optimizer.optimize_transport_schedule()
+
+        if not optimal_assignments:
+            return jsonify({"error": "No valid assignments found"}), 400
+
+        for t_name, origin, destination in optimal_assignments:
+            transporter = next(t for t in self.transporters if t.name == t_name)
+            request_obj = next(
+                r for r in self.transport_requests if r.origin == origin and r.destination == destination)
+
+            print(f"🚀 Deploying {transporter.name} for transport from {origin} to {destination}")
+
+            # 🔥 Run transport assignments in parallel
+            eventlet.spawn_n(self.assign_transport, transporter, request_obj)
+
+        return jsonify({"status": "Optimization deployed, transporters are working simultaneously!"})
 
     def get_hospital_graph(self):
         """Returns the hospital layout with standardized coordinates in JSON format."""
