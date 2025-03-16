@@ -7,6 +7,10 @@ from hospital_model import Hospital
 from model_patient_transporters import PatientTransporter
 from model_transportation_request import TransportationRequest
 from ilp_optimizer import ILPOptimizer
+from eventlet.semaphore import Semaphore
+
+# 🔒 Lock to prevent transporters from modifying shared data at the same time
+transport_lock = Semaphore()
 
 
 class HospitalController:
@@ -30,6 +34,7 @@ class HospitalController:
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters, methods=["GET"])
         self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests, methods=["GET"])
         self.app.add_url_rule("/deploy_optimization", "deploy_optimization", self.deploy_optimization, methods=["POST"])
+        self.app.add_url_rule("/add_transporter", "add_transporter", self.add_transporter, methods=["POST"])
 
     def index(self):
         """Serves the frontend page."""
@@ -47,7 +52,7 @@ class HospitalController:
         return weight
 
     def deploy_optimization(self):
-        """Runs ILP optimization and executes transporters in parallel."""
+        """Runs ILP optimization and executes transport assignments in parallel."""
         optimizer = ILPOptimizer(self.transporters, self.transport_requests, self.model.get_graph())
         optimal_assignments = optimizer.optimize_transport_schedule()
 
@@ -61,10 +66,14 @@ class HospitalController:
 
             print(f"🚀 Deploying {transporter.name} for transport from {origin} to {destination}")
 
+            # ✅ Emit initial position **before** moving
+            self.socketio.emit("transporter_update",
+                               {"name": transporter.name, "location": transporter.current_location})
+
             # 🔥 Run transport assignments in parallel
             eventlet.spawn_n(self.assign_transport, transporter, request_obj)
 
-        return jsonify({"status": "Optimization deployed, transporters are working simultaneously!"})
+        return jsonify({"status": "Optimization deployed, transporters are moving simultaneously!"})
 
     def get_hospital_graph(self):
         """Returns the hospital layout with standardized coordinates in JSON format."""
@@ -151,31 +160,50 @@ class HospitalController:
         return self.assign_transport(transporter, request_obj)
 
     def assign_transport(self, transporter, request_obj):
-        """Assigns a transport request to a transporter and updates its position step-by-step."""
-        path_to_origin, error_response, status_code = self.calculate_path(transporter.current_location,
-                                                                          request_obj.origin, transporter)
-        if error_response:
-            return error_response, status_code
+        """Assigns a transport request to a transporter, moving step-by-step with weight-based timing."""
+        graph = self.model.get_graph()
 
-        path_to_destination, error_response, status_code = self.calculate_path(request_obj.origin,
-                                                                               request_obj.destination, transporter)
-        if error_response:
-            return error_response, status_code
+        # 🚀 Get unique paths for this transporter
+        path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
+        path_to_destination, _ = transporter.pathfinder.dijkstra(request_obj.origin, request_obj.destination)
 
-        full_path = path_to_origin[:-1] + path_to_destination
-        self.move_transporter(transporter, full_path)
+        full_path = list(path_to_origin[:-1]) + list(path_to_destination)  # Ensure each transporter has its own path
 
-        # 🔹 Generate request key (same format used in frontend)
-        request_key = f"{request_obj.origin}-{request_obj.destination}"
+        if not full_path:
+            return jsonify({"error": "No valid path found"}), 400
 
-        # 🔥 Remove the request from self.transport_requests
-        self.transport_requests = [r for r in self.transport_requests if
-                                   not (r.origin == request_obj.origin and r.destination == request_obj.destination)]
+        print(f"🚑 {transporter.name} assigned transport. Moving along: {full_path}")
 
-        # 🔹 Emit to frontend that the request is completed (removes it from dropdown)
-        self.socketio.emit("transport_complete", {"requestKey": request_key})
+        # 🔥 Ensure each transporter has its own lock
+        transporter.lock = getattr(transporter, "lock", eventlet.semaphore.Semaphore())
 
-        return jsonify({"status": f"{transporter.name} has arrived at {request_obj.destination}."})
+        self.socketio.emit("transporter_update", {"name": transporter.name, "location": transporter.current_location})
+
+        for i in range(len(full_path) - 1):
+            current_node = full_path[i]
+            next_node = full_path[i + 1]
+
+            # 🕒 Get travel time based on edge weight
+            travel_time = graph.get_edge_weight(current_node, next_node)
+
+            # 🔒 Lock for this transporter only
+            with transporter.lock:
+                transporter.current_location = next_node
+
+            self.socketio.emit("transporter_update", {"name": transporter.name, "location": next_node})
+            print(f"📍 {transporter.name} moved to {next_node}, travel time: {travel_time}s")
+
+            eventlet.sleep(travel_time)  # ⏳ Wait based on edge weight
+
+        # ✅ Remove the transport request after it is completed
+        if request_obj in self.transport_requests:
+            self.transport_requests.remove(request_obj)
+            print(f"✅ Transport request {request_obj.origin} ➝ {request_obj.destination} completed and removed.")
+
+            # 🔥 Emit an event to tell the frontend that a transport is done
+            self.socketio.emit("transport_completed", {"transporter": transporter.name})
+
+        return jsonify({"status": f"Transport assigned to {transporter.name}!"})
 
     def initialize_hospital(self):
         """Initialize hospital departments and corridors."""
@@ -205,6 +233,28 @@ class HospitalController:
     def create_transporter(self, name):
         """Create and store a transporter."""
         self.transporters.append(PatientTransporter(self.model, name, start_location="Transporter Lounge"))
+
+    def add_transporter(self):
+        """Lägger till en ny patienttransportör via frontend genom att anropa create_transporter()."""
+        data = request.get_json()
+        transporter_name = data.get("name")
+
+        if not transporter_name:
+            return jsonify({"error": "Transporter name is required"}), 400
+
+        # Kontrollera om transportören redan finns
+        if any(t.name == transporter_name for t in self.transporters):
+            return jsonify({"error": "A transporter with this name already exists"}), 400
+
+        # 🔥 Återanvänd befintlig metod för att skapa transportören
+        self.create_transporter(transporter_name)
+
+        print(f"🚑 New transporter added via frontend: {transporter_name}")
+
+        # Uppdatera frontend i realtid
+        self.socketio.emit("new_transporter", {"name": transporter_name, "current_location": "Transporter Lounge"})
+
+        return jsonify({"status": f"Transporter {transporter_name} added successfully!"})
 
     def remove_transport_request(self):
         """Removes a transport request after completion."""

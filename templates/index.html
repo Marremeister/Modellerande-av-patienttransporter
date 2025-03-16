@@ -59,6 +59,9 @@
         <label for="requestSelect">Choose a Transport Request:</label>
         <select id="requestSelect"></select>
 
+        <input type="text" id="transporterName" placeholder="Transporter Name">
+        <button onclick="addTransporter()">Add Transporter</button>
+
         <button onclick="initiateTransport()">Initiate Patient Transport</button>
         <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
         <button onclick="deployOptimization()">Deploy Optimization</button>
@@ -149,6 +152,31 @@
         } else {
             alert("✅ Optimization Deployed! Transporters are moving.");
             loadTransportRequests(); // Refresh dropdowns
+        }
+    })
+    .catch(error => console.error("❌ Error:", error));
+}
+        function addTransporter() {
+    let transporterName = document.getElementById("transporterName").value.trim();
+
+    if (!transporterName) {
+        alert("❌ Please enter a transporter name.");
+        return;
+    }
+
+    fetch("http://127.0.0.1:5001/add_transporter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: transporterName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert("❌ Error: " + data.error);
+        } else {
+            alert("✅ Transporter added successfully!");
+            document.getElementById("transporterName").value = ""; // Rensa fältet
+            loadTransporters(); // Uppdatera dropdown-listan
         }
     })
     .catch(error => console.error("❌ Error:", error));
@@ -271,9 +299,17 @@ function removeRequest(requestKey) {
     .catch(error => console.error("❌ Error:", error));
 }
 
-socket.on("transport_complete", function (data) {
-    console.log("🚀 Transport completed:", data);
-    removeRequest(data.requestKey);
+socket.on("transport_completed", function (data) {
+    console.log("✅ Transport completed:", data.transporter);
+    loadTransportRequests(); // 🔄 Refresh dropdown to remove completed requests
+});
+socket.on("new_transporter", function (data) {
+    console.log("🚑 New transporter added:", data);
+    loadTransporters(); // Laddar om dropdown-listan
+});
+socket.on("transporter_update", function (data) {
+    console.log("🚀 Transporter update received:", data);
+    updateTransporterVisual(data.name, data.location);
 });
 
 
