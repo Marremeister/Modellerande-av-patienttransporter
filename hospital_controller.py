@@ -6,7 +6,6 @@ from flask_socketio import SocketIO
 from hospital_model import Hospital
 from model_patient_transporters import PatientTransporter
 from model_transportation_request import TransportationRequest
-import time
 
 
 class HospitalController:
@@ -19,17 +18,70 @@ class HospitalController:
         self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
 
         # Define API routes
-        self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
         self.app.add_url_rule("/", "index", self.index)
         self.app.add_url_rule("/get_hospital_graph", "get_hospital_graph", self.get_hospital_graph, methods=["GET"])
         self.app.add_url_rule("/assign_transport", "assign_transport", self.handle_assign_transport, methods=["POST"])
+        self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters, methods=["GET"])
-        self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests,
-                              methods=["GET"])
+        self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests, methods=["GET"])
 
     def index(self):
         """Serves the frontend page."""
         return render_template("index.html")
+
+    def get_travel_time(self, node1, node2):
+        """Returns the travel time based on the weight of the edge between two nodes."""
+        graph = self.model.get_graph()
+        weight = graph.get_edge_weight(node1, node2)
+
+        if weight is None:
+            print(f"⚠️ Warning: No weight found for {node1} → {node2}, defaulting to 1s")
+            weight = 1  # Standardvärde om ingen vikt finns
+
+        return weight
+
+    def get_hospital_graph(self):
+        """Returns the hospital layout with standardized coordinates in JSON format."""
+        return jsonify(self.model.get_graph().get_hospital_graph())
+
+    def get_transporters(self):
+        """Returns a list of available transporters with their current locations."""
+        return jsonify([{"name": t.name, "current_location": t.current_location} for t in self.transporters])
+
+    def get_transport_requests(self):
+        """Returns a list of available transport requests."""
+        return jsonify([
+            {"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type, "urgent": r.urgent}
+            for r in self.transport_requests
+        ])
+
+    def get_transporter(self, transporter_name):
+        """Finds a transporter by name."""
+        transporter = next((t for t in self.transporters if t.name == transporter_name), None)
+        if not transporter:
+            return None, jsonify({"error": "Transporter not found"}), 404
+        return transporter, None, None
+
+    def calculate_path(self, start, end, transporter):
+        """Calculates the shortest path between two points."""
+        path, _ = transporter.pathfinder.dijkstra(start, end)
+        if not path:
+            return None, jsonify({"error": f"No valid path from {start} to {end}"}), 400
+        return path, None, None
+
+    def move_transporter(self, transporter, path):
+        """Moves transporter step by step, considering edge weights for travel time."""
+        for i in range(len(path) - 1):
+            current_node = path[i]
+            next_node = path[i + 1]
+
+            travel_time = self.get_travel_time(current_node, next_node)  # 🔹 Använder hjälpmetod
+
+            transporter.current_location = next_node
+            self.socketio.emit("transporter_update", {"name": transporter.name, "location": next_node})
+
+            print(f"📍 {transporter.name} moving from {current_node} to {next_node}, will take {travel_time} seconds")
+            eventlet.sleep(travel_time)  # ⏳ Fördröjning baserat på vikt
 
     def return_home(self):
         """Returns a transporter to the lounge when the button is clicked."""
@@ -39,43 +91,53 @@ class HospitalController:
         if not transporter_name:
             return jsonify({"error": "No transporter specified"}), 400
 
-        transporter = next((t for t in self.transporters if t.name == transporter_name), None)
+        transporter, error_response, status_code = self.get_transporter(transporter_name)
+        if error_response:
+            return error_response, status_code
 
-        if not transporter:
-            return jsonify({"error": "Transporter not found"}), 404
+        path_to_lounge, error_response, status_code = self.calculate_path(transporter.current_location, "Transporter Lounge", transporter)
+        if error_response:
+            return error_response, status_code
 
-        # Hitta snabbaste vägen tillbaka till loungen
-        path_to_lounge, _ = transporter.pathfinder.dijkstra(transporter.current_location, "Transporter Lounge")
-
-        if not path_to_lounge:
-            return jsonify({"error": "No valid path found"}), 400
-
-        print(f"🚑 {transporter.name} returning home: {path_to_lounge}")
-
-        # Flytta transportören steg för steg
-        for node in path_to_lounge:
-            transporter.current_location = node
-            self.socketio.emit("transporter_update", {"name": transporter.name, "location": node})
-            eventlet.sleep(1)  # Simulera fördröjning
-
+        self.move_transporter(transporter, path_to_lounge)
         return jsonify({"status": f"{transporter.name} has returned to the lounge."})
 
+    def handle_assign_transport(self):
+        """Handles the frontend request and extracts transporter and request objects."""
+        data = request.get_json()
+        print("📥 Received JSON payload:", data)  # Log input request
 
-    def get_hospital_graph(self):
-        """Returns the hospital layout with standardized coordinates in JSON format."""
-        return jsonify(self.model.get_graph().get_hospital_graph())
+        transporter_name = data.get("transporter")
+        origin = data.get("origin")
+        destination = data.get("destination")
 
-    def get_transporters(self):
-        """Returns a list of available transporters with their current locations."""
-        return jsonify([
-            {"name": t.name, "current_location": t.current_location} for t in self.transporters
-        ])
+        if not transporter_name or not origin or not destination:
+            return jsonify({"error": "Missing transporter, origin, or destination"}), 400
 
-    def get_transport_requests(self):
-        """Returns a list of available transport requests."""
-        return jsonify(
-            [{"origin": r.origin, "destination": r.destination, "transport_type": r.transport_type, "urgent": r.urgent}
-             for r in self.transport_requests])
+        transporter, error_response, status_code = self.get_transporter(transporter_name)
+        if error_response:
+            return error_response, status_code
+
+        request_obj = next((r for r in self.transport_requests if r.origin == origin and r.destination == destination), None)
+        if not request_obj:
+            return jsonify({"error": "Transport request not found with given origin and destination."}), 400
+
+        return self.assign_transport(transporter, request_obj)
+
+    def assign_transport(self, transporter, request_obj):
+        """Assigns a transport request to a transporter and updates its position step-by-step."""
+        path_to_origin, error_response, status_code = self.calculate_path(transporter.current_location, request_obj.origin, transporter)
+        if error_response:
+            return error_response, status_code
+
+        path_to_destination, error_response, status_code = self.calculate_path(request_obj.origin, request_obj.destination, transporter)
+        if error_response:
+            return error_response, status_code
+
+        full_path = path_to_origin[:-1] + path_to_destination
+        self.move_transporter(transporter, full_path)
+
+        return jsonify({"status": f"{transporter.name} has arrived at {request_obj.destination}."})
 
     def initialize_hospital(self):
         """Initialize hospital departments and corridors."""
@@ -112,60 +174,6 @@ class HospitalController:
                                             transport_type=transport_type, urgent=urgent)
         self.transport_requests.append(request_obj)
 
-    def handle_assign_transport(self):
-        """Handles the frontend request and extracts transporter and request objects."""
-        data = request.get_json()
-        print("📥 Received JSON payload:", data)  # Log input request
-
-        transporter_name = data.get("transporter")
-        origin = data.get("origin")
-        destination = data.get("destination")
-
-        if not transporter_name or not origin or not destination:
-            print(
-                f"⚠️ Missing required fields! Transporter: {transporter_name}, Origin: {origin}, Destination: {destination}")
-            return jsonify({"error": "Missing transporter, origin, or destination"}), 400
-
-        transporter = next((t for t in self.transporters if t.name == transporter_name), None)
-        request_obj = next((r for r in self.transport_requests if r.origin == origin and r.destination == destination),
-                           None)
-
-        if not transporter:
-            return jsonify({"error": "Transporter not found"}), 400
-
-        if not request_obj:
-            return jsonify({"error": "Transport request not found with given origin and destination."}), 400
-
-        return self.assign_transport(transporter, request_obj)
-
-    def assign_transport(self, transporter, request_obj):
-        """Assigns a transport request to a transporter and updates its position step-by-step."""
-        graph = self.model.get_graph()
-
-        path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
-        path_to_destination, _ = transporter.pathfinder.dijkstra(request_obj.origin, request_obj.destination)
-        #path_to_lounge, _ = transporter.pathfinder.dijkstra(request_obj.destination, "Transporter Lounge")
-
-        #full_path = path_to_origin[:-1] + path_to_destination[:-1] + path_to_lounge
-        full_path = path_to_origin[:-1] + path_to_destination
-
-        if not full_path:
-            return jsonify({"error": "No valid path found"}), 400
-
-        print(f"🚑 {transporter.name} assigned transport. Moving along: {full_path}")
-
-        # Emit start location
-        self.socketio.emit("transporter_update", {"name": transporter.name, "location": transporter.current_location})
-
-        # Move step by step
-        for node in full_path:
-            transporter.current_location = node
-            self.socketio.emit("transporter_update", {"name": transporter.name, "location": node})
-            print(f"📍 {transporter.name} moved to {node}")
-            eventlet.sleep(1)  # Simulate transport delay
-
-        return jsonify({"status": f"Transport assigned to {transporter.name}!"})
-
     def run(self):
         """Run the system by initializing all components and starting necessary processes."""
         self.initialize_hospital()
@@ -179,8 +187,6 @@ class HospitalController:
         print("📦 Created transport requests: Emergency to ICU, Reception to Radiology")
 
         print("🚀 Hospital system running on http://127.0.0.1:5001")
-
-        # Run with eventlet
         eventlet.wsgi.server(eventlet.listen(("127.0.0.1", 5001)), self.app)
 
 

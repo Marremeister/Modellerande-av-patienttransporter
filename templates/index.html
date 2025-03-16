@@ -72,31 +72,46 @@
         var socket = io("http://127.0.0.1:5001");
 
         function loadHospitalGraph() {
-            fetch("http://127.0.0.1:5001/get_hospital_graph")
-                .then(response => response.json())
-                .then(graph => {
-                    let nodesMap = new Map(graph.nodes.map(n => [n.id, { id: n.id, x: n.x, y: n.y }]));
+    fetch("http://127.0.0.1:5001/get_hospital_graph")
+        .then(response => response.json())
+        .then(graph => {
+            let nodesMap = new Map(graph.nodes.map(n => [n.id, { id: n.id, x: n.x, y: n.y }]));
 
-                    let edges = graph.edges.map(e => ({
-                        source: nodesMap.get(e.source),
-                        target: nodesMap.get(e.target),
-                        weight: e.distance
-                    }));
+            let edges = graph.edges.map(e => ({
+                source: nodesMap.get(e.source),
+                target: nodesMap.get(e.target),
+                weight: e.distance  // 🔹 Store weight for display
+            }));
 
-                    svg.append("g").selectAll("line").data(edges).enter().append("line")
-                        .attr("class", "link")
-                        .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-                        .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+            // Draw edges (lines)
+            svg.append("g").selectAll("line").data(edges).enter().append("line")
+                .attr("class", "link")
+                .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
 
-                    svg.append("g").selectAll("circle").data([...nodesMap.values()]).enter().append("circle")
-                        .attr("class", "node").attr("r", 20)
-                        .attr("cx", d => d.x).attr("cy", d => d.y)
-                        .attr("data-node", d => d.id);
+            // Draw edge weights (text)
+            svg.append("g").selectAll("text.edge-label").data(edges).enter().append("text")
+                .attr("class", "edge-label")
+                .attr("x", d => (d.source.x + d.target.x) / 2)  // 🔹 Middle of the edge
+                .attr("y", d => (d.source.y + d.target.y) / 2 - 5)  // 🔹 Slightly above
+                .attr("text-anchor", "middle")
+                .attr("fill", "black")
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .text(d => d.weight);  // 🔹 Display weight
 
-                    svg.append("g").selectAll("text").data([...nodesMap.values()]).enter().append("text")
-                        .attr("x", d => d.x + 10).attr("y", d => d.y - 10).text(d => d.id);
-                });
-        }
+            // Draw nodes (circles)
+            svg.append("g").selectAll("circle").data([...nodesMap.values()]).enter().append("circle")
+                .attr("class", "node").attr("r", 20)
+                .attr("cx", d => d.x).attr("cy", d => d.y)
+                .attr("data-node", d => d.id);
+
+            // Draw node labels (text)
+            svg.append("g").selectAll("text").data([...nodesMap.values()]).enter().append("text")
+                .attr("x", d => d.x + 10).attr("y", d => d.y - 10).text(d => d.id);
+        });
+}
+
         function returnHome() {
     const selectedTransporter = document.getElementById("transporterSelect").value;
 

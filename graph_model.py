@@ -1,3 +1,5 @@
+import random
+
 class Graph:
     def __init__(self, directed=False):
         """Initialize a graph with optional directed edges and coordinate tracking."""
@@ -32,10 +34,16 @@ class Graph:
             self.adjacency_list[node2][node1] = weight
 
     def get_hospital_graph(self):
-        """Returns graph data including nodes, edges, and positions."""
+        """Returns graph data including nodes, edges, and positions with slight randomness."""
         return {
-            "nodes": [{"id": node, "x": self.coordinates[node][0], "y": self.coordinates[node][1]}
+            "nodes": [{"id": node,
+                       "x": self.coordinates[node][0] + random.uniform(-10, 10),  # 🔹 Add slight randomness
+                       "y": self.coordinates[node][1] + random.uniform(-10, 10)}  # 🔹 Add slight randomness
                       for node in self.adjacency_list.keys()],
             "edges": [{"source": n1, "target": n2, "distance": self.adjacency_list[n1][n2]}
                       for n1 in self.adjacency_list for n2 in self.adjacency_list[n1]]
         }
+
+    def get_edge_weight(self, node1, node2):
+        """Returnerar vikten mellan två noder om kanten existerar, annars None."""
+        return self.adjacency_list.get(node1, {}).get(node2, None)
