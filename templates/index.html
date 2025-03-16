@@ -63,6 +63,29 @@
         <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
 
     </div>
+    <div class="request-form">
+    <h3>Create New Transport Request</h3>
+
+    <label for="originDropdown">Origin:</label>
+    <select id="originDropdown"></select>
+
+    <label for="destinationDropdown">Destination:</label>
+    <select id="destinationDropdown"></select>
+
+    <label for="typeDropdown">Transport Type:</label>
+    <select id="typeDropdown">
+        <option value="stretcher">Stretcher</option>
+        <option value="wheelchair">Wheelchair</option>
+    </select>
+
+    <label for="urgentDropdown">Urgency:</label>
+    <select id="urgentDropdown">
+        <option value="true">Urgent</option>
+        <option value="false">Not Urgent</option>
+    </select>
+
+    <button onclick="createRequest()">Create Request</button>
+</div>
 
     <svg viewBox="-100 -100 1400 1000"></svg>
 
@@ -155,6 +178,85 @@
                     });
                 });
         }
+        function loadDepartmentDropdowns() {
+    fetch("http://127.0.0.1:5001/get_hospital_graph")
+        .then(response => response.json())
+        .then(graph => {
+            console.log("🏥 Loaded hospital graph:", graph); // 🔹 Debugging
+
+            let originDropdown = document.getElementById("originDropdown");
+            let destinationDropdown = document.getElementById("destinationDropdown");
+
+            originDropdown.innerHTML = "";
+            destinationDropdown.innerHTML = "";
+
+            if (!graph.nodes || graph.nodes.length === 0) {
+                console.error("❌ No nodes found in hospital graph!");
+                return;
+            }
+
+            graph.nodes.forEach(node => {
+                let option1 = document.createElement("option");
+                option1.value = node.id;
+                option1.textContent = node.id;
+                originDropdown.appendChild(option1);
+
+                let option2 = document.createElement("option");
+                option2.value = node.id;
+                option2.textContent = node.id;
+                destinationDropdown.appendChild(option2);
+            });
+
+            console.log("✅ Dropdowns populated successfully!");
+        })
+        .catch(error => console.error("❌ Error fetching departments:", error));
+}
+
+
+        function createRequest() {
+    let origin = document.getElementById("originDropdown").value;
+    let destination = document.getElementById("destinationDropdown").value;
+    let transportType = document.getElementById("typeDropdown").value;
+    let urgent = document.getElementById("urgentDropdown").value === "true";
+
+    if (!origin || !destination || origin === destination) {
+        alert("Please select a valid origin and destination.");
+        return;
+    }
+
+    fetch("http://127.0.0.1:5001/frontend_transport_request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination, transport_type: transportType, urgent })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.status || "Request created successfully!");
+        loadTransportRequests();  // 🔹 Refresh the request list
+    })
+    .catch(error => console.error("❌ Error:", error));
+}
+
+
+function removeRequest(requestKey) {
+    fetch("http://127.0.0.1:5001/remove_transport_request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestKey })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("✅ Request removed:", data);
+        loadTransportRequests();  // 🔹 Refresh dropdown after removal
+    })
+    .catch(error => console.error("❌ Error:", error));
+}
+
+socket.on("transport_complete", function (data) {
+    console.log("🚀 Transport completed:", data);
+    removeRequest(data.requestKey);
+});
+
 
         function loadTransportRequests() {
             fetch("http://127.0.0.1:5001/get_transport_requests")
@@ -259,6 +361,7 @@
             loadHospitalGraph();
             loadTransporters();
             loadTransportRequests();
+            loadDepartmentDropdowns();
         };
     </script>
 </body>
