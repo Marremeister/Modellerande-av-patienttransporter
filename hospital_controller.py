@@ -160,19 +160,27 @@ class HospitalController:
         return self.assign_transport(transporter, request_obj)
 
     def assign_transport(self, transporter, request_obj):
-        """Assigns a transport request to a transporter, moving step-by-step with weight-based timing."""
+        """Assigns a transport request to a transporter and moves step-by-step with weight-based timing."""
         graph = self.model.get_graph()
 
-        # 🚀 Get unique paths for this transporter
         path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
         path_to_destination, _ = transporter.pathfinder.dijkstra(request_obj.origin, request_obj.destination)
 
-        full_path = list(path_to_origin[:-1]) + list(path_to_destination)  # Ensure each transporter has its own path
+        full_path = list(path_to_origin[:-1]) + list(path_to_destination)
 
         if not full_path:
             return jsonify({"error": "No valid path found"}), 400
 
-        print(f"🚑 {transporter.name} assigned transport. Moving along: {full_path}")
+        print(f"🚑 {transporter.name} assigned transport: {request_obj.origin} ➝ {request_obj.destination}")
+
+        # 🔥 Emit event to frontend with assignment details
+        self.socketio.emit("transport_assigned", {
+            "transporter": transporter.name,
+            "origin": request_obj.origin,
+            "destination": request_obj.destination,
+            "transport_type": request_obj.transport_type,
+            "urgent": request_obj.urgent
+        })
 
         # 🔥 Ensure each transporter has its own lock
         transporter.lock = getattr(transporter, "lock", eventlet.semaphore.Semaphore())
@@ -183,24 +191,19 @@ class HospitalController:
             current_node = full_path[i]
             next_node = full_path[i + 1]
 
-            # 🕒 Get travel time based on edge weight
             travel_time = graph.get_edge_weight(current_node, next_node)
 
-            # 🔒 Lock for this transporter only
             with transporter.lock:
                 transporter.current_location = next_node
 
             self.socketio.emit("transporter_update", {"name": transporter.name, "location": next_node})
             print(f"📍 {transporter.name} moved to {next_node}, travel time: {travel_time}s")
 
-            eventlet.sleep(travel_time)  # ⏳ Wait based on edge weight
+            eventlet.sleep(travel_time)
 
-        # ✅ Remove the transport request after it is completed
         if request_obj in self.transport_requests:
             self.transport_requests.remove(request_obj)
             print(f"✅ Transport request {request_obj.origin} ➝ {request_obj.destination} completed and removed.")
-
-            # 🔥 Emit an event to tell the frontend that a transport is done
             self.socketio.emit("transport_completed", {"transporter": transporter.name})
 
         return jsonify({"status": f"Transport assigned to {transporter.name}!"})

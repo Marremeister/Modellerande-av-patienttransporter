@@ -51,6 +51,10 @@
     </style>
 </head>
 <body>
+    <div id="logPanel" style="width: 90vw; height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f9f9f9;">
+    <h3>🚀 Transport Log</h3>
+    <ul id="logList" style="list-style-type: none; padding: 0;"></ul>
+</div>
     <h1>Hospital Transport System</h1>
     <div class="controls">
         <label for="transporterSelect">Choose a Transporter:</label>
@@ -310,6 +314,16 @@ socket.on("new_transporter", function (data) {
 socket.on("transporter_update", function (data) {
     console.log("🚀 Transporter update received:", data);
     updateTransporterVisual(data.name, data.location);
+});
+socket.on("transport_assigned", function (data) {
+    console.log("📝 Transport assigned:", data);
+
+    let logList = document.getElementById("logList");
+    let logEntry = document.createElement("li");
+    logEntry.textContent = `✅ ${data.transporter} assigned to transport ${data.transport_type} from ${data.origin} to ${data.destination}. Urgent: ${data.urgent ? "Yes" : "No"}`;
+
+    logList.appendChild(logEntry);
+    logList.scrollTop = logList.scrollHeight; // 🔄 Auto-scroll to latest log
 });
 
 
