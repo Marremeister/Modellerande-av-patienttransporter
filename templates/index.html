@@ -60,6 +60,8 @@
         <select id="requestSelect"></select>
 
         <button onclick="initiateTransport()">Initiate Patient Transport</button>
+        <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
+
     </div>
 
     <svg viewBox="-100 -100 1400 1000"></svg>
@@ -95,6 +97,31 @@
                         .attr("x", d => d.x + 10).attr("y", d => d.y - 10).text(d => d.id);
                 });
         }
+        function returnHome() {
+    const selectedTransporter = document.getElementById("transporterSelect").value;
+
+    if (!selectedTransporter) {
+        alert("Please select a transporter first.");
+        return;
+    }
+
+    fetch("/return_home", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ transporter: selectedTransporter })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert("Error: " + data.error);
+        } else {
+            alert(data.status);
+        }
+    })
+    .catch(error => console.error("Error:", error));
+}
 
         function loadTransporters() {
             fetch("http://127.0.0.1:5001/get_transporters")

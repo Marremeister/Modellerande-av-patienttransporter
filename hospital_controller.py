@@ -19,6 +19,7 @@ class HospitalController:
         self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
 
         # Define API routes
+        self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
         self.app.add_url_rule("/", "index", self.index)
         self.app.add_url_rule("/get_hospital_graph", "get_hospital_graph", self.get_hospital_graph, methods=["GET"])
         self.app.add_url_rule("/assign_transport", "assign_transport", self.handle_assign_transport, methods=["POST"])
@@ -29,6 +30,36 @@ class HospitalController:
     def index(self):
         """Serves the frontend page."""
         return render_template("index.html")
+
+    def return_home(self):
+        """Returns a transporter to the lounge when the button is clicked."""
+        data = request.get_json()
+        transporter_name = data.get("transporter")
+
+        if not transporter_name:
+            return jsonify({"error": "No transporter specified"}), 400
+
+        transporter = next((t for t in self.transporters if t.name == transporter_name), None)
+
+        if not transporter:
+            return jsonify({"error": "Transporter not found"}), 404
+
+        # Hitta snabbaste vägen tillbaka till loungen
+        path_to_lounge, _ = transporter.pathfinder.dijkstra(transporter.current_location, "Transporter Lounge")
+
+        if not path_to_lounge:
+            return jsonify({"error": "No valid path found"}), 400
+
+        print(f"🚑 {transporter.name} returning home: {path_to_lounge}")
+
+        # Flytta transportören steg för steg
+        for node in path_to_lounge:
+            transporter.current_location = node
+            self.socketio.emit("transporter_update", {"name": transporter.name, "location": node})
+            eventlet.sleep(1)  # Simulera fördröjning
+
+        return jsonify({"status": f"{transporter.name} has returned to the lounge."})
+
 
     def get_hospital_graph(self):
         """Returns the hospital layout with standardized coordinates in JSON format."""
@@ -113,9 +144,11 @@ class HospitalController:
 
         path_to_origin, _ = transporter.pathfinder.dijkstra(transporter.current_location, request_obj.origin)
         path_to_destination, _ = transporter.pathfinder.dijkstra(request_obj.origin, request_obj.destination)
-        path_to_lounge, _ = transporter.pathfinder.dijkstra(request_obj.destination, "Transporter Lounge")
+        #path_to_lounge, _ = transporter.pathfinder.dijkstra(request_obj.destination, "Transporter Lounge")
 
-        full_path = path_to_origin[:-1] + path_to_destination[:-1] + path_to_lounge
+        #full_path = path_to_origin[:-1] + path_to_destination[:-1] + path_to_lounge
+        full_path = path_to_origin[:-1] + path_to_destination
+
         if not full_path:
             return jsonify({"error": "No valid path found"}), 400
 
@@ -129,7 +162,7 @@ class HospitalController:
             transporter.current_location = node
             self.socketio.emit("transporter_update", {"name": transporter.name, "location": node})
             print(f"📍 {transporter.name} moved to {node}")
-            time.sleep(1)  # Simulate transport delay
+            eventlet.sleep(1)  # Simulate transport delay
 
         return jsonify({"status": f"Transport assigned to {transporter.name}!"})
 
