@@ -1,26 +1,25 @@
-from datetime import datetime
-
 class TransportationRequest:
-    def __init__(self, request_time, origin, destination, transport_type="stretcher", urgent=False):
-        """Creates a transport request."""
-        self.request_time = request_time
+    def __init__(self, origin, destination, transport_type="stretcher", urgent=False):
+        """Represents a transport request for a patient/item."""
         self.origin = origin
         self.destination = destination
         self.transport_type = transport_type
         self.urgent = urgent
-        self.status = "pending"  # New status: pending, ongoing, completed
+        self.status = "pending"  # Default status
 
     def mark_as_ongoing(self):
-        """Marks the request as ongoing."""
+        """Marks request as ongoing."""
         self.status = "ongoing"
 
     def mark_as_completed(self):
-        """Marks the request as completed."""
+        """Marks request as completed."""
         self.status = "completed"
 
+
     def to_dict(self):
-        """Returns the request as a dictionary for JSON serialization."""
+        """Convert request to JSON serializable format"""
         return {
+            "request_time": self.request_time,
             "origin": self.origin,
             "destination": self.destination,
             "transport_type": self.transport_type,
@@ -28,8 +27,19 @@ class TransportationRequest:
             "status": self.status
         }
 
-    def __str__(self):
-        """Returns a formatted string representation of the request."""
-        urgency_status = "Urgent" if self.urgent else "Non-Urgent"
-        return (f"Request Time: {self.request_time}, Urgency: {urgency_status}, "
-                f"Type: {self.transport_type}, Origin: {self.origin}, Destination: {self.destination}")
+    @classmethod
+    def create(cls, origin, destination, transport_type="stretcher", urgent=False):
+        """Creates and stores a new transport request."""
+        request_obj = cls(request_time=None, origin=origin, destination=destination, transport_type=transport_type, urgent=urgent)
+        cls.pending_requests.append(request_obj)
+        print(f"📦 Transport request created: {origin} → {destination} ({transport_type}, Urgent: {urgent})")
+        return request_obj
+
+    @classmethod
+    def get_requests(cls):
+        """Returns all transport requests grouped by status."""
+        return {
+            "pending": [r.to_dict() for r in cls.pending_requests],
+            "ongoing": [r.to_dict() for r in cls.ongoing_requests],
+            "completed": [r.to_dict() for r in cls.completed_requests]
+        }
