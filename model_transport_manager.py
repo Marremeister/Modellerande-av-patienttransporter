@@ -15,23 +15,28 @@ class TransportManager:
         self.transport_lock = Semaphore()  # Prevents simultaneous modifications
 
     def deploy_optimization(self):
-        """Runs ILP optimization and assigns transporters in parallel."""
+        """Runs ILP optimization and assigns transporters in parallel, without blocking the main event loop."""
         print("🚀 DEBUG: Deploying Optimization...")
 
-        # ✅ Store transporters & requests in variables (avoids multiple function calls)
-        transporters = self.get_transporter_objects()  # Retrieves transporter instances
-        pending_requests = self.pending_requests  # Access the attribute directly
-        graph = self.hospital.get_graph()  # Get hospital graph
+        # ✅ Run optimization in a background thread to prevent UI lag
+        eventlet.spawn_n(self._run_optimization)
 
-        # ✅ Initialize optimizer
-        optimizer = ILPOptimizer(transporters, pending_requests, graph)
+        return {"status": "🚀 Optimization started! Transporters will move shortly."}
 
+    def _run_optimization(self):
+        """Runs the ILP optimization in a separate thread to prevent UI freezing."""
         print("🔍 Running ILP Optimization for transport assignments...")
-        optimal_assignments = optimizer.optimize_transport_schedule()
+
+        transporters = self.get_transporter_objects()
+        pending_requests = self.pending_requests
+        graph = self.hospital.get_graph()
+
+        optimizer = ILPOptimizer(transporters, pending_requests, graph)
+        optimal_assignments = optimizer.optimize_transport_schedule()  # ✅ Now runs in the background
 
         if not optimal_assignments:
             print("❌ No valid assignments found")
-            return {"error": "No valid assignments found"}, 400  # 🚀 Return a dictionary
+            return
 
         for transporter_name, origin, destination in optimal_assignments:
             transporter = next((t for t in transporters if t.name == transporter_name), None)
@@ -39,22 +44,18 @@ class TransportManager:
                                None)
 
             if not transporter or not request_obj:
-                print(
-                    f"⚠️ Skipping assignment: Could not find transporter '{transporter_name}' or request {origin} ➝ {destination}")
-                continue  # Skip invalid assignments
+                print(f"⚠️ Skipping assignment for {transporter_name} ({origin} → {destination})")
+                continue
 
             print(f"🚀 Assigning {transporter.name} for transport from {origin} to {destination}")
 
-            # ✅ Send real-time updates to frontend
             self.socketio.emit("transporter_update", {
                 "name": transporter.name,
                 "location": transporter.current_location
             })
 
-            # ✅ Assign transport request in a separate thread
+            # ✅ Start transport assignments in separate eventlet threads
             eventlet.spawn_n(self.assign_transport, transporter.name, request_obj)
-
-        return {"status": "✅ Optimization deployed! Transporters are moving."}  # 🚀 Return a dictionary
 
     def add_transporter(self, transporter):
         """Adds a new transporter to the system."""
