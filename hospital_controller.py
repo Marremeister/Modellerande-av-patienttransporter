@@ -17,7 +17,6 @@ class HospitalController:
     def __init__(self):
         """Initialize hospital model, transporters, and viewer."""
         self.model = Hospital()
-        self.transporters = []
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
         self.transport_manager = TransportManager(self.model, self.socketio)
@@ -36,6 +35,10 @@ class HospitalController:
         self.app.add_url_rule("/add_transporter", "add_transporter", self.add_transporter, methods=["POST"])
         self.app.add_url_rule("/set_transporter_status", "set_transporter_status", self.set_transporter_status,
                               methods=["POST"])
+
+    @property
+    def transporters(self):
+        return self.transport_manager.transporters
 
     @staticmethod
     def index():
@@ -156,7 +159,9 @@ class HospitalController:
 
     def create_transporter(self, name):
         """Create and store a transporter."""
-        self.transport_manager.add_transporter(PatientTransporter(self.model, name, self.socketio))
+        new_transporter = PatientTransporter(self.model, name, self.socketio)
+        self.transport_manager.add_transporter(new_transporter)
+        print(f"✅ Transporter {name} added to TransportManager.")
 
     def add_transporter(self):
         """Adds a new patient transporter via frontend."""
@@ -167,7 +172,7 @@ class HospitalController:
             return jsonify({"error": "Transporter name is required"}), 400
 
         # 🔥 Check if transporter already exists
-        if any(t.name == transporter_name for t in self.transporters):
+        if self.transport_manager.get_transporter(transporter_name):
             return jsonify({"error": "A transporter with this name already exists"}), 400
 
         # 🔹 Pass `self.socketio` when creating transporter

@@ -319,6 +319,12 @@ function setTransporterStatus() {
 }
 
 function createTransporterVisual(name, location, color = "red") {
+    // ✅ Prevent duplicates
+    if (transporterNodes[name]) {
+        console.warn(`⚠️ Transporter '${name}' already visualized. Skipping duplicate.`);
+        return;
+    }
+
     let nodeElement = document.querySelector(`[data-node='${location}']`);
     if (!nodeElement) {
         console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
@@ -339,7 +345,14 @@ function createTransporterVisual(name, location, color = "red") {
         .attr("data-transporter", name);
 }
 
+
        function loadTransporters() {
+    // 🔁 Clear previous transporter visuals
+    for (let name in transporterNodes) {
+        transporterNodes[name].remove();
+    }
+    transporterNodes = {};
+
     fetch("http://127.0.0.1:5001/get_transporters")
         .then(response => response.json())
         .then(data => {
@@ -356,11 +369,12 @@ function createTransporterVisual(name, location, color = "red") {
                 }
 
                 // Update transporter status visually
-                let color = trans.status === "active" ? "red" : "gray"; // Inactive transporters appear gray
+                let color = trans.status === "active" ? "red" : "gray";
                 createTransporterVisual(trans.name, trans.current_location, color);
             });
         });
 }
+
 
         function loadDepartmentDropdowns() {
     fetch("http://127.0.0.1:5001/get_hospital_graph")
@@ -527,27 +541,37 @@ socket.on("transport_assigned", function (data) {
 
 
 
-        function createTransporterVisual(name, location) {
-            let nodeElement = document.querySelector(`[data-node='${location}']`);
+        function createTransporterVisual(name, location, color = "red") {
+    if (!location) {
+        console.warn(`⚠️ Transporter '${name}' has no location. Skipping.`);
+        return;
+    }
 
-            if (!nodeElement) {
-                console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
-                return;
-            }
+    if (transporterNodes[name]) {
+        console.warn(`⚠️ Transporter '${name}' already visualized. Skipping duplicate.`);
+        return;
+    }
 
-            let x = parseFloat(nodeElement.getAttribute("cx"));
-            let y = parseFloat(nodeElement.getAttribute("cy"));
+    let nodeElement = document.querySelector(`[data-node='${location}']`);
+    if (!nodeElement) {
+        console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
+        return;
+    }
 
-            console.log(`🚛 Creating transporter ${name} at (${x}, ${y})`);
+    let x = parseFloat(nodeElement.getAttribute("cx"));
+    let y = parseFloat(nodeElement.getAttribute("cy"));
 
-            transporterNodes[name] = svg.append("circle")
-                .attr("class", "transporter")
-                .attr("r", 10)
-                .attr("cx", x)
-                .attr("cy", y)
-                .attr("fill", "red")
-                .attr("data-transporter", name);
-        }
+    console.log(`🚛 Creating transporter '${name}' at (${x}, ${y}) on '${location}'`);
+
+    transporterNodes[name] = svg.append("circle")
+        .attr("class", "transporter")
+        .attr("r", 10)
+        .attr("cx", x)
+        .attr("cy", y)
+        .attr("fill", color)
+        .attr("data-transporter", name);
+}
+
 
         function updateTransporterVisual(name, newLocation) {
             let nodeElement = document.querySelector(`[data-node='${newLocation}']`);
