@@ -551,27 +551,20 @@ socket.on("transport_assigned", function (data) {
 
 
 
-        function createTransporterVisual(name, location, color = "red") {
-    if (!location) {
-        console.warn(`⚠️ Transporter '${name}' has no location. Skipping.`);
-        return;
-    }
-
-    if (transporterNodes[name]) {
-        console.warn(`⚠️ Transporter '${name}' already visualized. Skipping duplicate.`);
-        return;
-    }
+       function createTransporterVisual(name, location, color = "red") {
+    if (!location) return;
 
     let nodeElement = document.querySelector(`[data-node='${location}']`);
     if (!nodeElement) {
-        console.error(`❌ Error: Node '${location}' not found for transporter '${name}'.`);
+        console.warn(`⚠️ Node '${location}' not found. Retrying in 100ms...`);
+        setTimeout(() => createTransporterVisual(name, location, color), 100);
         return;
     }
 
+    if (transporterNodes[name]) return;
+
     let x = parseFloat(nodeElement.getAttribute("cx"));
     let y = parseFloat(nodeElement.getAttribute("cy"));
-
-    console.log(`🚛 Creating transporter '${name}' at (${x}, ${y}) on '${location}'`);
 
     transporterNodes[name] = svg.append("circle")
         .attr("class", "transporter")
@@ -581,6 +574,7 @@ socket.on("transport_assigned", function (data) {
         .attr("fill", color)
         .attr("data-transporter", name);
 }
+
 
 
         function updateTransporterPath(name, path, durations) {

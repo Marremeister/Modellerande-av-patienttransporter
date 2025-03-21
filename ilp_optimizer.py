@@ -29,11 +29,23 @@ class ILPOptimizer:
         return assign_vars
 
     def add_objective_function(self, prob, assign_vars):
-        """Objective: minimize total travel time across all assignments."""
-        prob += lpSum(
-            assign_vars[(t.name, r.origin, r.destination)] * self.estimate_travel_time(t, r)
-            for t in self.transporters for r in self.transport_requests
-        )
+        """
+        Minimizes the time to finish the last request (makespan).
+        """
+        # Define makespan variable (max time any transporter will take)
+        self.makespan = LpVariable("makespan", lowBound=0)
+
+        for t in self.transporters:
+            # Sum of times assigned to this transporter
+            total_time = lpSum(
+                assign_vars[(t.name, r.origin, r.destination)] * self.estimate_travel_time(t, r)
+                for r in self.transport_requests
+            )
+            # Constrain makespan to be at least the total time for this transporter
+            prob += total_time <= self.makespan
+
+        # Objective: minimize the makespan
+        prob += self.makespan
 
     def add_constraints(self, prob, assign_vars):
         # 🚫 Each request must be assigned to exactly one transporter
@@ -84,3 +96,39 @@ class ILPOptimizer:
             print(f"  🚑 {t}: {tasks}")
 
         return assignments
+
+    def generate_assignment_plan(self):
+        """
+        Runs the ILP optimizer and returns a dict mapping transporter names to lists of request objects.
+        """
+        if not self.transport_requests or not self.transporters:
+            print("❌ No transporters or requests available.")
+            return {}
+
+        prob = LpProblem("Transport_Optimization", LpMinimize)
+        assign_vars = self.get_assign_vars()
+        self.add_objective_function(prob, assign_vars)
+        self.add_constraints(prob, assign_vars)
+        prob.solve()
+
+        assignment_dict = {}
+
+        for (t_name, origin, destination), var in assign_vars.items():
+            if var.value() == 1:
+                if t_name not in assignment_dict:
+                    assignment_dict[t_name] = []
+                # Match actual request object
+                req = next(
+                    (r for r in self.transport_requests if r.origin == origin and r.destination == destination),
+                    None
+                )
+                if req:
+                    assignment_dict[t_name].append(req)
+
+        # Optional: sort by travel time
+        for t_name, requests in assignment_dict.items():
+            transporter = next(t for t in self.transporters if t.name == t_name)
+            requests.sort(key=lambda r: self.estimate_travel_time(transporter, r))
+
+        return assignment_dict
+

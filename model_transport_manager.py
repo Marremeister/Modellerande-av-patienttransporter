@@ -24,38 +24,80 @@ class TransportManager:
         return {"status": "🚀 Optimization started! Transporters will move shortly."}
 
     def _run_optimization(self):
-        """Runs the ILP optimization in a separate thread to prevent UI freezing."""
-        print("🔍 Running ILP Optimization for transport assignments...")
+        """
+        Runs ILP optimization and reassigns all pending transport requests.
+        Preserves in-progress tasks but replaces all queued tasks with a new optimal plan.
+        Sends detailed logs to the frontend via transport_log socket events.
+        """
+        self.socketio.emit("transport_log", {"message": "🔁 Re-optimizing all transport assignments..."})
 
         transporters = self.get_transporter_objects()
         pending_requests = self.pending_requests
         graph = self.hospital.get_graph()
 
         optimizer = ILPOptimizer(transporters, pending_requests, graph)
-        optimal_assignments = optimizer.optimize_transport_schedule()  # ✅ Now runs in the background
+        assignment_plan = optimizer.generate_assignment_plan()
 
-        if not optimal_assignments:
-            print("❌ No valid assignments found")
+        if not assignment_plan:
+            self.socketio.emit("transport_log", {
+                "message": "❌ Optimization failed or no assignments available."
+            })
             return
 
-        for transporter_name, origin, destination in optimal_assignments:
-            transporter = next((t for t in transporters if t.name == transporter_name), None)
-            request_obj = next((r for r in pending_requests if r.origin == origin and r.destination == destination),
-                               None)
+        # 🔄 Reset all transporters
+        for transporter in self.transporters:
+            assigned_requests = assignment_plan.get(transporter.name, [])
 
-            if not transporter or not request_obj:
-                print(f"⚠️ Skipping assignment for {transporter_name} ({origin} → {destination})")
-                continue
+            if transporter.is_busy and transporter.current_task:
+                self.socketio.emit("transport_log", {
+                    "message": f"🔒 Preserving current task for {transporter.name}: "
+                               f"{transporter.current_task.origin} ➝ {transporter.current_task.destination}"
+                })
+                transporter.task_queue = assigned_requests  # Just queue the new optimized tasks
+            elif assigned_requests:
+                # Assign first request now, queue the rest
+                first = assigned_requests.pop(0)
+                transporter.current_task = first
+                transporter.is_busy = True
+                self.ongoing_requests.append(first)
+                first.status = "ongoing"
 
-            print(f"🚀 Assigning {transporter.name} for transport from {origin} to {destination}")
+                self.socketio.emit("transport_log", {
+                    "message": f"🚑 Assigned {transporter.name} to: {first.origin} ➝ {first.destination}"
+                })
 
-            self.socketio.emit("transporter_update", {
-                "name": transporter.name,
-                "location": transporter.current_location
+                transporter.task_queue = assigned_requests
+                eventlet.spawn_n(self.process_transport, transporter)
+            else:
+                # No task at all
+                transporter.current_task = None
+                transporter.task_queue = []
+                transporter.is_busy = False
+                self.socketio.emit("transport_log", {
+                    "message": f"✅ {transporter.name} is idle."
+                })
+
+        # 📝 Summary log for each transporter
+        for transporter in self.transporters:
+            self.socketio.emit("transport_log", {
+                "message": f"📝 {transporter.name} task summary:"
             })
 
-            # ✅ Start transport assignments in separate eventlet threads
-            eventlet.spawn_n(self.assign_transport, transporter.name, request_obj)
+            if transporter.current_task:
+                self.socketio.emit("transport_log", {
+                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination}"
+                })
+
+            if transporter.task_queue:
+                for i, queued in enumerate(transporter.task_queue):
+                    self.socketio.emit("transport_log", {
+                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination}"
+                    })
+            else:
+                if not transporter.current_task:
+                    self.socketio.emit("transport_log", {
+                        "message": f"   💤 Idle"
+                    })
 
     def add_transporter(self, transporter):
         """Adds a new transporter to the system."""
