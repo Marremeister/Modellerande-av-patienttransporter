@@ -156,6 +156,9 @@
     <button onclick="initiateTransport()">Initiate Patient Transport</button>
     <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
     <button onclick="deployOptimization()">Deploy Optimization</button>
+
+    <button id="toggleSimulationBtn">Start Simulation</button>
+
 </div>
 
 
@@ -289,8 +292,6 @@
     .then(data => {
         if (data.error) {
             logEvent(`❌ Error: ${data.error}`, "error");
-        } else {
-            logEvent(`🏠 ${selectedTransporter} has returned home.`, "success");
         }
     })
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
@@ -305,18 +306,23 @@ function setTransporterStatus() {
         return;
     }
 
-    fetch("http://127.0.0.1:5001/set_transporter_status", {
+    fetch("/set_transporter_status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transporter: transporterName, status })
     })
     .then(response => response.json())
     .then(data => {
-        logEvent(`🔄 Status for ${transporterName} updated to ${status.toUpperCase()}.`, "info");
-        loadTransporters();  // Refresh transporter list
+        if (data.error) {
+            logEvent(`❌ Error: ${data.error}`, "error");
+        }
+
+
+        loadTransporters();
     })
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
+
 
 function createTransporterVisual(name, location, color = "red") {
     // ✅ Prevent duplicates
@@ -422,18 +428,23 @@ function createTransporterVisual(name, location, color = "red") {
         return;
     }
 
-    fetch("http://127.0.0.1:5001/frontend_transport_request", {
+    fetch("/frontend_transport_request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ origin, destination, transport_type: transportType, urgent })
     })
     .then(response => response.json())
     .then(data => {
-        logEvent(`📦 Transport request from ${origin} to ${destination} created.`, "success");
-        loadTransportRequests();  // 🔹 Refresh the request list
+        if (data.error) {
+            logEvent(`❌ Error: ${data.error}`, "error");
+        } else {
+            loadTransportRequests();
+        }
     })
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
+
+
 
 
 function removeRequest(requestKey) {
@@ -452,20 +463,18 @@ function removeRequest(requestKey) {
 
 socket.on("transport_completed", function (data) {
     console.log("🚀 Transport completed:", data);
-
-    let logList = document.getElementById("logList");
-    let logEntry = document.createElement("li");
-    logEntry.textContent = `🏁 ${data.transporter} has completed their transport.`;
-
-    logList.appendChild(logEntry);
-    logList.scrollTop = logList.scrollHeight; // 🔄 Auto-scroll to latest log
-
-    loadTransportRequests(); // 🔄 Refresh available requests
+    loadTransportRequests();  // ✅ Only do UI refresh
 });
+
 socket.on("transporter_status_update", function (data) {
     console.log("🔄 Transporter status update:", data);
     loadTransporters(); // Refresh transporter list
 });
+
+socket.on("transport_log", function (data) {
+    logEvent(data.message);
+});
+
 
 
 socket.on("new_transporter", function (data) {
@@ -640,9 +649,8 @@ function logEvent(message, type = "info") {
         return;
     }
 
-    logEvent(`🛫 Assigning ${transporterName} to transport from ${requestObj.origin} to ${requestObj.destination}`);
-
-    fetch("http://127.0.0.1:5001/assign_transport", {
+    // 🧼 Removed all logEvent calls below
+    fetch("/assign_transport", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -658,12 +666,12 @@ function logEvent(message, type = "info") {
         if (data.error) {
             logEvent(`❌ Error: ${data.error}`, "error");
         } else {
-            logEvent(`✅ ${transporterName} started transport from ${requestObj.origin} to ${requestObj.destination}.`, "success");
-            loadTransportRequests(); // 🔄 Refresh available transport requests
+            loadTransportRequests();
         }
     })
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
+
 
 
 
@@ -674,6 +682,23 @@ function logEvent(message, type = "info") {
             loadTransportRequests();
             loadDepartmentDropdowns();
         };
+
+        let simulationRunning = false;
+
+document.getElementById("toggleSimulationBtn").addEventListener("click", () => {
+    simulationRunning = !simulationRunning;
+    fetch("/toggle_simulation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ running: simulationRunning })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("🎮 Simulation:", data.status);
+        document.getElementById("toggleSimulationBtn").innerText = simulationRunning ? "Stop Simulation" : "Start Simulation";
+    });
+});
+
     </script>
 </body>
 </html>

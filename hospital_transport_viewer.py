@@ -27,6 +27,7 @@ class HospitalTransportViewer:
                               methods=["POST"])
         self.app.add_url_rule("/remove_transport_request", "remove_transport_request", self.remove_transport_request,
                               methods=["POST"])
+        self.app.add_url_rule("/toggle_simulation", "toggle_simulation", self.toggle_simulation, methods=["POST"])
 
     # 👇 Views / Endpoints
 
@@ -66,14 +67,14 @@ class HospitalTransportViewer:
 
     def frontend_transport_request(self):
         data = request.get_json()
-        request_obj = self.system.create_transport_request(
-            data.get("origin"),
-            data.get("destination"),
-            data.get("transport_type", "stretcher"),
-            data.get("urgent", False)
-        )
+        origin = data.get("origin")
+        destination = data.get("destination")
+        transport_type = data.get("transport_type", "stretcher")
+        urgent = data.get("urgent", False)
+
+        request_obj = self.system.frontend_transport_request(origin, destination, transport_type, urgent)
         return jsonify({
-            "status": f"Request from {data.get('origin')} to {data.get('destination')} created!",
+            "status": "Request created",
             "request": vars(request_obj)
         })
 
@@ -84,3 +85,8 @@ class HospitalTransportViewer:
     def remove_transport_request(self):
         data = request.get_json()
         return jsonify(self.system.remove_transport_request(data.get("requestKey")))
+
+    def toggle_simulation(self):
+        data = request.get_json()
+        running = data.get("running")
+        return jsonify(*self.system.toggle_simulation(running))

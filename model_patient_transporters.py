@@ -55,6 +55,7 @@ class PatientTransporter:
 
         # Update to final position
         self.current_location = path[-1]
+
         return True
 
     def increase_workload(self, amount):

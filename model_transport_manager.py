@@ -137,7 +137,6 @@ class TransportManager:
             "status": f"✅ {transporter.name} is transporting {request_obj.transport_type} from {request_obj.origin} to {request_obj.destination}."}
 
     def process_transport(self, transporter, request):
-        """Handles transport execution using move_to(), running in parallel."""
         print(f"🚀 {transporter.name} starting transport {request.origin} ➝ {request.destination}")
 
         # Move to pickup location
@@ -145,6 +144,9 @@ class TransportManager:
         if not success:
             print(f"❌ {transporter.name} failed to reach {request.origin}")
             return
+        self.socketio.emit("transport_log", {
+            "message": f"✅ {transporter.name} is now actively moving objective from {request.origin} to {request.destination}"
+        })
 
         # Move to destination
         success = transporter.move_to(request.destination)
@@ -153,7 +155,6 @@ class TransportManager:
             return
 
         # ✅ Mark transport as completed
-        self.pending_requests.remove(request)
         self.completed_requests.append(request)
         print(f"🏁 {transporter.name} completed transport: {request.origin} ➝ {request.destination}")
 
@@ -161,6 +162,11 @@ class TransportManager:
             "transporter": transporter.name,
             "origin": request.origin,
             "destination": request.destination
+        })
+
+        # ✅ 🚨 Move the log_event here
+        self.socketio.emit("transport_log", {
+            "message": f"🏁 {transporter.name} completed transport from {request.origin} to {request.destination}"
         })
 
         # 💤 Start workload reduction asynchronously

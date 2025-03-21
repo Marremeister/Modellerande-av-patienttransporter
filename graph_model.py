@@ -47,3 +47,7 @@ class Graph:
     def get_edge_weight(self, node1, node2):
         """Returnerar vikten mellan två noder om kanten existerar, annars None."""
         return self.adjacency_list.get(node1, {}).get(node2, None)
+
+    def get_nodes(self):
+        """Returns a list of all nodes in the graph."""
+        return list(self.adjacency_list.keys())

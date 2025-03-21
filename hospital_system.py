@@ -1,6 +1,7 @@
 from hospital_model import Hospital
 from model_transport_manager import TransportManager
 from model_patient_transporters import PatientTransporter
+from simulation import Simulation
 
 
 class HospitalSystem:
@@ -8,6 +9,7 @@ class HospitalSystem:
         self.hospital = hospital or Hospital()
         self.socketio = socketio
         self.transport_manager = TransportManager(self.hospital, self.socketio)
+        self.simulation = Simulation(self, socketio, interval=10)
 
     def initialize(self):
         self._initialize_hospital()
@@ -53,6 +55,19 @@ class HospitalSystem:
     # -----------------------------
     # 🔹 Core Interface
     # -----------------------------
+    def start_simulation(self):
+        self.simulation.start()
+
+    def stop_simulation(self):
+        self.simulation.stop()
+
+    def toggle_simulation(self, running: bool):
+        if running:
+            self.simulation.start()
+            return {"status": "Simulation started"}, 200
+        else:
+            self.simulation.stop()
+            return {"status": "Simulation stopped"}, 200
 
     def get_graph(self):
         return self.hospital.get_graph().get_hospital_graph()
@@ -77,6 +92,16 @@ class HospitalSystem:
     def create_transport_request(self, origin, destination, transport_type="stretcher", urgent=False):
         return self.transport_manager.create_transport_request(origin, destination, transport_type, urgent)
 
+    def frontend_transport_request(self, origin, destination, transport_type="stretcher", urgent=False):
+        request = self.create_transport_request(origin, destination, transport_type, urgent)
+
+        self.log_event(
+            f"📦 Transport request from {origin} to {destination} created. "
+            f"Type: {transport_type}, Urgent: {urgent}"
+        )
+
+        return request
+
     def assign_transport(self, transporter_name, origin, destination):
         transporter = self.transport_manager.get_transporter(transporter_name)
         if not transporter:
@@ -90,10 +115,24 @@ class HospitalSystem:
         if not request_obj:
             return self._error("Transport request not found")
 
-        return self._success(self.transport_manager.assign_transport(transporter_name, request_obj))
+        # ✅ Backend log BEFORE assignment
+        self.log_event(f"🛫 Assigning {transporter_name} to transport from {origin} to {destination}")
+
+        result = self.transport_manager.assign_transport(transporter_name, request_obj)
+
+        # ✅ Backend log AFTER assignment
+        self.log_event(f"✅ {transporter_name} started transport from {origin} to {destination}")
+
+        return self._success(result)
 
     def return_home(self, name):
-        return self._success(self.transport_manager.return_home(name))
+        result = self.transport_manager.return_home(name)
+
+        # Only log success (you could check result content more deeply if needed)
+        if "error" not in result:
+            self.log_event(f"🏠 {name} has returned to the Transporter Lounge.")
+
+        return self._success(result)
 
     def deploy_optimization(self):
         response = self.transport_manager.deploy_optimization()
@@ -108,10 +147,18 @@ class HospitalSystem:
         return self.transport_manager.get_transport_requests()
 
     def set_transporter_status(self, name, status):
-        return self._success(self.transport_manager.set_transporter_status(name, status))
+        result = self.transport_manager.set_transporter_status(name, status)
+
+        if "error" not in result:
+            self.log_event(f"🔄 Status for {name} set to {status.upper()}.")
+
+        return self._success(result)
 
     def remove_transport_request(self, request_key):
         return self._success(self.transport_manager.remove_transport_request(request_key))
+
+    def log_event(self, message):
+        self.socketio.emit("transport_log", {"message": message})
 
     # -----------------------------
     # 🔹 Helpers
