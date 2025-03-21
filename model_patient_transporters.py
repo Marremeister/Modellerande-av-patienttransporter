@@ -11,6 +11,9 @@ class PatientTransporter:
         self.workload = 0  # Total workload
         self.pathfinder = Pathfinder(hospital)
         self.socketio = socketio  # For sending updates
+        self.current_task = None
+        self.task_queue = []
+        self.is_busy = False
 
     def set_active(self):
         """Sets transporter to active."""

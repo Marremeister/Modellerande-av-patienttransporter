@@ -131,45 +131,76 @@ class TransportManager:
         })
 
         # Move transporter step-by-step
-        eventlet.spawn_n(self.process_transport, transporter, request_obj)
+        if transporter.is_busy:
+            transporter.task_queue.append(request_obj)
+            print(f"🕒 {transporter.name} is busy. Queued transport {request_obj.origin} → {request_obj.destination}")
+            self.socketio.emit("transport_log", {
+                "message": f"🕒 {transporter.name} is busy. Queued transport {request_obj.origin} → {request_obj.destination}"
+            })
+        else:
+            transporter.current_task = request_obj
+            transporter.is_busy = True
+            eventlet.spawn_n(self.process_transport, transporter)
 
         return {
             "status": f"✅ {transporter.name} is transporting {request_obj.transport_type} from {request_obj.origin} to {request_obj.destination}."}
 
-    def process_transport(self, transporter, request):
+    def process_transport(self, transporter):
+        request = transporter.current_task
+        if not request:
+            print(f"⚠️ No current task found for {transporter.name}. Skipping.")
+            transporter.is_busy = False
+            return
+
         print(f"🚀 {transporter.name} starting transport {request.origin} ➝ {request.destination}")
 
-        # Move to pickup location
+        # Step 1: Move to pickup location
         success = transporter.move_to(request.origin)
         if not success:
             print(f"❌ {transporter.name} failed to reach {request.origin}")
+            transporter.is_busy = False
+            transporter.current_task = None
             return
-        self.socketio.emit("transport_log", {
-            "message": f"✅ {transporter.name} is now actively moving objective from {request.origin} to {request.destination}"
-        })
 
-        # Move to destination
+        # Step 2: Move to destination
         success = transporter.move_to(request.destination)
         if not success:
             print(f"❌ {transporter.name} failed to reach {request.destination}")
+            transporter.is_busy = False
+            transporter.current_task = None
             return
 
-        # ✅ Mark transport as completed
-        self.completed_requests.append(request)
+        # Step 3: Mark task as completed
+        if request in self.ongoing_requests:
+            self.ongoing_requests.remove(request)
+            self.completed_requests.append(request)
+            request.status = "completed"
+
         print(f"🏁 {transporter.name} completed transport: {request.origin} ➝ {request.destination}")
 
+        # Notify frontend
         self.socketio.emit("transport_completed", {
             "transporter": transporter.name,
             "origin": request.origin,
             "destination": request.destination
         })
-
-        # ✅ 🚨 Move the log_event here
         self.socketio.emit("transport_log", {
-            "message": f"🏁 {transporter.name} completed transport from {request.origin} to {request.destination}"
+            "message": f"✅ {transporter.name} completed transport from {request.origin} to {request.destination}"
         })
 
-        # 💤 Start workload reduction asynchronously
+        # Step 4: Clear current task
+        transporter.current_task = None
+        transporter.is_busy = False
+
+        # Step 5: Start next queued task if available
+        if transporter.task_queue:
+            next_task = transporter.task_queue.pop(0)
+            transporter.current_task = next_task
+            transporter.is_busy = True
+            print(f"🔁 {transporter.name} starting next queued task: {next_task.origin} ➝ {next_task.destination}")
+            eventlet.spawn_n(self.process_transport, transporter)
+
+        # Step 6: Optional workload reduction
         eventlet.spawn_n(transporter.reduce_workload)
 
     def return_home(self, transporter_name):
