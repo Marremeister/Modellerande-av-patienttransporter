@@ -1,38 +1,86 @@
-import eventlet
-import eventlet.wsgi
-from flask import request, jsonify
+from flask import request, jsonify, render_template
 from flask_socketio import SocketIO
 
 
 class HospitalTransportViewer:
-    def __init__(self, app):
-        """Initialize WebSocket communication using Flask-SocketIO and attach it to an existing Flask app."""
+    def __init__(self, app, socketio: SocketIO, hospital_system):
         self.app = app
-        self.socketio = SocketIO(self.app, async_mode="eventlet", cors_allowed_origins="*")
-        self.transporters = {}  # Dictionary to store transporter movements
+        self.socketio = socketio
+        self.system = hospital_system  # 🧠 injected by HospitalController
+        self._register_routes()
 
-        # Define routes within the existing Flask app
-        self.app.add_url_rule("/update_transporter", "update_transporter", self.update_transporter, methods=["POST"])
+    def _register_routes(self):
+        self.app.add_url_rule("/", "index", self.index)
+
+        self.app.add_url_rule("/add_transporter", "add_transporter", self.add_transporter, methods=["POST"])
+        self.app.add_url_rule("/get_hospital_graph", "get_graph", self.get_graph)
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters)
+        self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests)
 
+        self.app.add_url_rule("/deploy_optimization", "deploy_optimization", self.deploy_optimization, methods=["POST"])
+        self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
+        self.app.add_url_rule("/assign_transport", "assign_transport", self.assign_transport, methods=["POST"])
 
-    def emit_transporter_update(self, name, path):
-        """Send a transport update to the frontend."""
-        print(f"📡 Emitting transporter update: {name} moving on {path}")
-        self.socketio.emit("transporter_update", {"name": name, "path": path})
+        self.app.add_url_rule("/frontend_transport_request", "frontend_transport_request",
+                              self.frontend_transport_request, methods=["POST"])
+        self.app.add_url_rule("/set_transporter_status", "set_transporter_status", self.set_transporter_status,
+                              methods=["POST"])
+        self.app.add_url_rule("/remove_transport_request", "remove_transport_request", self.remove_transport_request,
+                              methods=["POST"])
 
-    def update_transporter(self):
-        """Handles transporter updates from external requests."""
-        data = request.json
-        print(f"📥 Received transporter update request: {data}")
+    # 👇 Views / Endpoints
+
+    def index(self):
+        return render_template("index.html")
+
+    def add_transporter(self):
+        data = request.get_json()
         name = data.get("name")
-        path = data.get("path", [])
-        if name and path:
-            self.transporters[name] = path
-            self.emit_transporter_update(name, path)
-            return jsonify({"status": "updated"})
-        return jsonify({"error": "Invalid data"}), 400
+        if not name:
+            return jsonify({"error": "Transporter name required"}), 400
+
+        result, status = self.system.add_transporter(name)
+        return jsonify(result), status
+
+    def get_graph(self):
+        return jsonify(self.system.get_graph())
 
     def get_transporters(self):
-        """Returns a JSON list of active transporters and their paths."""
-        return jsonify(self.transporters)
+        return jsonify(self.system.get_transporters())
+
+    def get_transport_requests(self):
+        return jsonify(self.system.get_transport_requests())
+
+    def deploy_optimization(self):
+        return jsonify(self.system.deploy_optimization())
+
+    def return_home(self):
+        data = request.get_json()
+        return jsonify(self.system.return_home(data.get("transporter")))
+
+    def assign_transport(self):
+        data = request.get_json()
+        return jsonify(*self.system.assign_transport(
+            data.get("transporter"), data.get("origin"), data.get("destination")
+        ))
+
+    def frontend_transport_request(self):
+        data = request.get_json()
+        request_obj = self.system.create_transport_request(
+            data.get("origin"),
+            data.get("destination"),
+            data.get("transport_type", "stretcher"),
+            data.get("urgent", False)
+        )
+        return jsonify({
+            "status": f"Request from {data.get('origin')} to {data.get('destination')} created!",
+            "request": vars(request_obj)
+        })
+
+    def set_transporter_status(self):
+        data = request.get_json()
+        return jsonify(self.system.set_transporter_status(data.get("transporter"), data.get("status")))
+
+    def remove_transport_request(self):
+        data = request.get_json()
+        return jsonify(self.system.remove_transport_request(data.get("requestKey")))
