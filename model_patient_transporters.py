@@ -52,6 +52,7 @@ class PatientTransporter:
             "durations": durations_ms
         })
 
+
         # Simulate delay in backend
         for travel_time in durations_ms:
             eventlet.sleep(travel_time / 1000.0)
