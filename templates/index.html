@@ -473,9 +473,10 @@ socket.on("new_transporter", function (data) {
     loadTransporters(); // Laddar om dropdown-listan
 });
 socket.on("transporter_update", function (data) {
-    console.log("🚀 Transporter update received:", data);
-    updateTransporterVisual(data.name, data.location);
+    console.log("🚚 Transporter update received:", data);
+    updateTransporterPath(data.name, data.path, data.durations);
 });
+
 
 socket.on("transport_status_update", function (data) {
     console.log("🚀 Transport status update received:", data);
@@ -573,40 +574,44 @@ socket.on("transport_assigned", function (data) {
 }
 
 
-        function updateTransporterVisual(name, newLocation) {
-            let nodeElement = document.querySelector(`[data-node='${newLocation}']`);
-            let transporterElement = d3.select(`[data-transporter='${name}']`);
+        function updateTransporterPath(name, path, durations) {
+    if (!path || path.length < 2) return;
 
-            if (!nodeElement || transporterElement.empty()) {
-                console.error(`❌ Error: Node '${newLocation}' or transporter '${name}' not found for movement.`);
-                return;
-            }
+    let transporterElement = d3.select(`[data-transporter='${name}']`);
+    if (transporterElement.empty()) {
+        console.error(`❌ Transporter '${name}' not found in DOM`);
+        return;
+    }
 
-            let x = parseFloat(nodeElement.getAttribute("cx"));
-            let y = parseFloat(nodeElement.getAttribute("cy"));
+    let step = 1;
+    function moveStep() {
+        if (step >= path.length) return;
 
-            console.log(`📍 Moving transporter ${name} to ${newLocation} at (${x}, ${y})`);
-
-            transporterElement
-                .transition()
-                .duration(1000)
-                .attr("cx", x)
-                .attr("cy", y)
-                .on("end", () => console.log(`✅ ${name} arrived at (${x}, ${y})`));
+        let nextNode = document.querySelector(`[data-node='${path[step]}']`);
+        if (!nextNode) {
+            console.error(`❌ Node '${path[step]}' not found`);
+            return;
         }
 
-        socket.on("transporter_update", function (data) {
-            console.log("🚀 Transporter update received:", data);
-            let transporterName = data.name;
-            let newLocation = data.location;
+        let x = parseFloat(nextNode.getAttribute("cx"));
+        let y = parseFloat(nextNode.getAttribute("cy"));
+        let duration = durations?.[step - 1] || 1000;
 
-            if (!transporterNodes[transporterName]) {
-                console.error("⚠️ Transporter element not found in visualization for", transporterName);
-                return;
-            }
+        transporterElement
+            .transition()
+            .duration(duration)
+            .attr("cx", x)
+            .attr("cy", y)
+            .on("end", () => {
+                console.log(`✅ '${name}' moved to '${path[step]}' in ${duration}ms`);
+                step++;
+                moveStep();
+            });
+    }
 
-            updateTransporterVisual(transporterName, newLocation);
-        });
+    moveStep();
+}
+
 
 function logEvent(message, type = "info") {
     let logList = document.getElementById("logList");

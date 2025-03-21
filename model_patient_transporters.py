@@ -23,10 +23,10 @@ class PatientTransporter:
         self.socketio.emit("transporter_status_update", {"name": self.name, "status": "inactive"})
 
     def move_to(self, destination):
-        """Moves the transporter step by step, updating location and workload."""
+        """Moves the transporter step by step, updating location and workload with edge-based timing."""
         if self.status == "inactive":
             print(f"🚫 {self.name} is inactive and cannot move.")
-            return False  # Prevents movement
+            return False
 
         path, distance = self.pathfinder.dijkstra(self.current_location, destination)
         if not path:
@@ -35,17 +35,26 @@ class PatientTransporter:
 
         self.increase_workload(distance)
 
+        durations_ms = []
         for i in range(len(path) - 1):
             current_node = path[i]
             next_node = path[i + 1]
             travel_time = self.hospital.get_graph().get_edge_weight(current_node, next_node)
+            durations_ms.append(travel_time * 1000)
 
-            self.current_location = next_node
-            self.socketio.emit("transporter_update", {"name": self.name, "location": next_node})
-            print(f"📍 {self.name} moving from {current_node} to {next_node}, taking {travel_time}s")
+        # Emit entire path + durations once, for frontend to animate
+        self.socketio.emit("transporter_update", {
+            "name": self.name,
+            "path": path,
+            "durations": durations_ms
+        })
 
-            eventlet.sleep(travel_time)  # Simulate movement delay
+        # Simulate delay in backend
+        for travel_time in durations_ms:
+            eventlet.sleep(travel_time / 1000.0)
 
+        # Update to final position
+        self.current_location = path[-1]
         return True
 
     def increase_workload(self, amount):
