@@ -10,6 +10,7 @@ class HospitalSystem:
         self.socketio = socketio
         self.transport_manager = TransportManager(self.hospital, self.socketio)
         self.simulation = Simulation(self, socketio, interval=10)
+        self.transport_manager.simulation = self.simulation
 
     def initialize(self):
         self._initialize_hospital()

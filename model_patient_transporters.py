@@ -1,5 +1,6 @@
 import eventlet
 from model_pathfinder import Pathfinder
+from model_shift_manager import ShiftManager
 
 class PatientTransporter:
     def __init__(self, hospital, name, socketio, start_location="Transporter Lounge"):
@@ -14,6 +15,7 @@ class PatientTransporter:
         self.current_task = None
         self.task_queue = []
         self.is_busy = False
+        self.shift_manager = ShiftManager(self)
 
     def set_active(self):
         """Sets transporter to active."""
@@ -55,7 +57,9 @@ class PatientTransporter:
 
         # Simulate delay in backend
         for travel_time in durations_ms:
-            eventlet.sleep(travel_time / 1000.0)
+            seconds = travel_time / 1000.0
+            self.shift_manager.update_work_time(seconds)
+            eventlet.sleep(seconds)
 
         # Update to final position
         self.current_location = path[-1]
@@ -65,7 +69,7 @@ class PatientTransporter:
     def increase_workload(self, amount):
         """Increases workload based on the transport distance."""
         self.workload += amount
-        print(f"⚡ {self.name}'s workload increased to {self.workload}")
+
         self.socketio.emit("workload_update", {"name": self.name, "workload": self.workload})
 
     def reduce_workload(self, amount=1):
@@ -73,5 +77,4 @@ class PatientTransporter:
         while self.workload > 0:
             eventlet.sleep(1)  # Simulating time passing
             self.workload = max(0, self.workload - amount)
-            print(f"💤 {self.name} is resting. Workload decreased to: {self.workload}")
             self.socketio.emit("workload_update", {"name": self.name, "workload": self.workload})

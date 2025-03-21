@@ -88,5 +88,13 @@ class HospitalTransportViewer:
 
     def toggle_simulation(self):
         data = request.get_json()
-        running = data.get("running")
-        return jsonify(*self.system.toggle_simulation(running))
+        running = data.get("running", False)
+
+        self.system.transport_manager.set_simulation_state(running)
+
+        if running:
+            self.system.simulation.start()
+        else:
+            self.system.simulation.stop()
+
+        return jsonify({"status": "Simulation started" if running else "Simulation stopped"})

@@ -13,6 +13,7 @@ class TransportManager:
         self.ongoing_requests = []
         self.completed_requests = []
         self.transport_lock = Semaphore()  # Prevents simultaneous modifications
+        self.simulation = None
 
     def deploy_optimization(self):
         """Runs ILP optimization and assigns transporters in parallel, without blocking the main event loop."""
@@ -47,8 +48,15 @@ class TransportManager:
         for transporter in self.transporters:
             assigned_requests = assignment_plan.get(transporter.name, [])
 
+            # ⛔ Skip if transporter is resting
+            if transporter.shift_manager.resting:
+                self.socketio.emit("transport_log", {
+                    "message": f"💤 {transporter.name} is currently resting and will not be assigned new requests."
+                })
+                transporter.task_queue = assigned_requests  # Pre-queue
+                continue
+
             if transporter.is_busy and transporter.current_task:
-                # 🔒 Don't interrupt current transport; just queue the new ones
                 self.socketio.emit("transport_log", {
                     "message": f"🔒 Preserving current task for {transporter.name}: "
                                f"{transporter.current_task.origin} ➝ {transporter.current_task.destination}"
@@ -56,7 +64,6 @@ class TransportManager:
                 transporter.task_queue = assigned_requests
 
             elif assigned_requests:
-                # 🚑 Assign first request immediately
                 first = assigned_requests.pop(0)
                 transporter.current_task = first
                 transporter.is_busy = True
@@ -68,12 +75,9 @@ class TransportManager:
                 })
 
                 transporter.task_queue = assigned_requests
-
-                # ✅ Corrected: pass both transporter and request
                 eventlet.spawn_n(self.process_transport, transporter, first)
 
             else:
-                # 💤 No tasks assigned to this transporter
                 transporter.current_task = None
                 transporter.task_queue = []
                 transporter.is_busy = False
@@ -81,7 +85,7 @@ class TransportManager:
                     "message": f"✅ {transporter.name} is idle."
                 })
 
-        # 📝 Summary log with estimated durations
+        # 📝 Summary logs
         for transporter in self.transporters:
             self.socketio.emit("transport_log", {
                 "message": f"📝 {transporter.name} task summary:"
@@ -118,6 +122,8 @@ class TransportManager:
         self.transporters.append(transporter)
         print(f"🚑 Transporter {transporter.name} added.")
         self.socketio.emit("new_transporter", {"name": transporter.name, "status": transporter.status})
+        if self.simulation and self.simulation.is_running():
+            eventlet.spawn_n(self._run_optimization)
 
     def get_transporter(self, name):
         """Finds a transporter by name."""
@@ -203,9 +209,7 @@ class TransportManager:
             "status": f"✅ {transporter.name} is transporting {request_obj.transport_type} from {request_obj.origin} to {request_obj.destination}."}
 
     def process_transport(self, transporter, request):
-        """Handles a transport assignment step-by-step, including marking as completed."""
-        print(f"🚚 {transporter.name} starting transport: {request.origin} → {request.destination}")
-
+        """Handles a transport assignment step-by-step, including rest handling."""
         self.socketio.emit("transport_log", {
             "message": f"🛫 {transporter.name} started transport from {request.origin} to {request.destination}."
         })
@@ -215,8 +219,6 @@ class TransportManager:
             self.socketio.emit("transport_log", {
                 "message": f"❌ {transporter.name} failed to reach {request.origin}."
             })
-            transporter.is_busy = False
-            transporter.current_task = None
             return
 
         # Step 2: Move to destination
@@ -224,11 +226,9 @@ class TransportManager:
             self.socketio.emit("transport_log", {
                 "message": f"❌ {transporter.name} failed to reach {request.destination}."
             })
-            transporter.is_busy = False
-            transporter.current_task = None
             return
 
-        # Step 3: Mark request as completed
+        # Step 3: Complete transport
         request.status = "completed"
         if request in self.ongoing_requests:
             self.ongoing_requests.remove(request)
@@ -247,25 +247,36 @@ class TransportManager:
             "destination": request.destination
         })
 
-        # Step 4: Reduce workload in background
+        # Step 4: Workload cooldown
         eventlet.spawn_n(transporter.reduce_workload)
 
-        # Step 5: Handle next task if any
+        # Step 5: Mandatory rest check
+        if transporter.shift_manager.should_rest():
+            self.socketio.emit("transport_log", {
+                "message": f"😴 {transporter.name} has reached their limit and is heading to the lounge for rest."
+            })
+
+            transporter.shift_manager.begin_rest()
+            transporter.move_to("Transporter Lounge")
+            eventlet.sleep(transporter.shift_manager.rest_duration)
+            transporter.shift_manager.end_rest()
+
+            self.socketio.emit("transport_log", {
+                "message": f"☀️ {transporter.name} is now rested and ready for new assignments!"
+            })
+            if self.simulation and self.simulation.is_running():
+                eventlet.spawn_n(self._run_optimization)
+
+        # Step 6: Continue with next task if available
         if transporter.task_queue:
             next_request = transporter.task_queue.pop(0)
             transporter.current_task = next_request
-            transporter.is_busy = True
-            next_request.status = "ongoing"
             self.ongoing_requests.append(next_request)
-
-            print(
-                f"🔁 {transporter.name} continues with queued transport: {next_request.origin} → {next_request.destination}")
-
+            next_request.status = "ongoing"
             eventlet.spawn_n(self.process_transport, transporter, next_request)
         else:
             transporter.current_task = None
             transporter.is_busy = False
-            print(f"✅ {transporter.name} is now idle.")
 
     def return_home(self, transporter_name):
         """Returns a transporter to the Transporter Lounge."""
@@ -309,6 +320,9 @@ class TransportManager:
             "ongoing": [vars(r) for r in self.ongoing_requests],
             "completed": [vars(r) for r in self.completed_requests]
         }
+
+    def set_simulation_state(self, running: bool):
+        self.simulation_running = running
 
 
 

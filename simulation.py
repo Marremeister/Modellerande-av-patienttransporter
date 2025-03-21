@@ -17,6 +17,9 @@ class Simulation:
         """Stops the simulation loop."""
         self.running = False
 
+    def is_running(self):
+        return self.running
+
     def _run_loop(self):
         """Main simulation loop."""
         graph = self.system.hospital.get_graph()
