@@ -1,5 +1,4 @@
 import eventlet
-
 eventlet.monkey_patch()
 import eventlet.wsgi
 from flask import Flask, render_template, request, jsonify, has_request_context
