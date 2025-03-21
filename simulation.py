@@ -45,6 +45,6 @@ class Simulation:
 
             print(f"🧪 [Simulation] Request: {origin} ➝ {destination} ({transport_type}, urgent={urgent})")
 
-            self.system.deploy_optimization()
+            self.system.transport_manager.deploy_strategy_assignment()
 
             eventlet.sleep(self.interval)

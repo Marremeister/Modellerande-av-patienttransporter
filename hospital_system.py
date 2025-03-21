@@ -2,6 +2,9 @@ from hospital_model import Hospital
 from model_transport_manager import TransportManager
 from model_patient_transporters import PatientTransporter
 from simulation import Simulation
+from ilp_optimizer_strategy import ILPOptimizerStrategy
+from random_assignment_strategy import RandomAssignmentStrategy
+
 
 
 class HospitalSystem:
@@ -135,8 +138,8 @@ class HospitalSystem:
 
         return self._success(result)
 
-    def deploy_optimization(self):
-        response = self.transport_manager.deploy_optimization()
+    def deploy_strategy_assignment(self):
+        response = self.transport_manager.deploy_strategy_assignment()
         if "error" in response:
             return self._error(response["error"])
         return self._success(response)
@@ -160,6 +163,12 @@ class HospitalSystem:
 
     def log_event(self, message):
         self.socketio.emit("transport_log", {"message": message})
+
+    def enable_random_mode(self):
+        self.transport_manager.set_strategy(RandomAssignmentStrategy())
+
+    def enable_optimized_mode(self):
+        self.transport_manager.set_strategy(ILPOptimizerStrategy())
 
     # -----------------------------
     # 🔹 Helpers

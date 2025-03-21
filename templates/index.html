@@ -145,6 +145,9 @@
         <option value="inactive">Inactive</option>
     </select>
     <button onclick="setTransporterStatus()">Update Status</button>
+        <button onclick="deployOptimization()">Solve with Optimizer</button>
+<button onclick="deployRandomness()">Solve with Randomizer</button>
+
     <!-- 🚀 End New Status Dropdown -->
 
     <label for="requestSelect">Choose a Transport Request:</label>
@@ -155,9 +158,12 @@
 
     <button onclick="initiateTransport()">Initiate Patient Transport</button>
     <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
-    <button onclick="deployOptimization()">Deploy Optimization</button>
+<!-- 🎯 Simplified Strategy Control -->
+<button onclick="simulateOptimally()">Simulate Optimally</button>
+<button onclick="simulateRandomly()">Simulate Randomly</button>
+<button id="stopSimulationBtn" onclick="stopSimulation()" style="display:none;">Stop Simulation</button>
 
-    <button id="toggleSimulationBtn">Start Simulation</button>
+
 
 </div>
 
@@ -234,22 +240,45 @@
         });
 }
         function deployOptimization() {
-    logEvent("🚀 Deploying Optimization...");
-    fetch("http://127.0.0.1:5001/deploy_optimization", {
+    fetch("http://127.0.0.1:5001/set_strategy", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy: "ilp" })
+    })
+    .then(() => {
+        return fetch("http://127.0.0.1:5001/deploy_strategy_assignment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
     })
     .then(response => response.json())
     .then(data => {
-        if (data.error) {
-            logEvent(`❌ Optimization Failed: ${data.error}`, "error");
-        } else {
-            logEvent("✅ Optimization Deployed! Transporters are moving.", "success");
-            loadTransportRequests(); // Refresh dropdowns
-        }
+        logEvent("✅ Optimization Strategy Deployed! Transporters are moving.", "success");
+        loadTransportRequests();
     })
-    .catch(error => logEvent(`❌ Error: ${error}`, "error"));
+    .catch(error => logEvent(`❌ Optimization Error: ${error}`, "error"));
 }
+
+function deployRandomness() {
+    fetch("http://127.0.0.1:5001/set_strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ strategy: "random" })
+    })
+    .then(() => {
+        return fetch("http://127.0.0.1:5001/deploy_strategy_assignment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        logEvent("🎲 Random Assignment Strategy Deployed!", "success");
+        loadTransportRequests();
+    })
+    .catch(error => logEvent(`❌ Randomization Error: ${error}`, "error"));
+}
+
 
         function addTransporter() {
     let transporterName = document.getElementById("transporterName").value.trim();
@@ -323,6 +352,51 @@ function setTransporterStatus() {
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
 }
 
+function simulateOptimally() {
+        fetch("/set_strategy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ strategy: "ilp" })
+        }).then(() => {
+            startSimulation("ILP Optimizer");
+        });
+    }
+
+    function simulateRandomly() {
+        fetch("/set_strategy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ strategy: "random" })
+        }).then(() => {
+            startSimulation("Random Assignment");
+        });
+    }
+
+    function startSimulation(label) {
+        fetch("/toggle_simulation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ running: true })
+        })
+        .then(res => res.json())
+        .then(data => {
+            logEvent(`🎮 Started simulation using: ${label}`);
+            document.getElementById("stopSimulationBtn").style.display = "inline-block";
+        });
+    }
+
+    function stopSimulation() {
+        fetch("/toggle_simulation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ running: false })
+        })
+        .then(res => res.json())
+        .then(data => {
+            logEvent("🛑 Simulation stopped");
+            document.getElementById("stopSimulationBtn").style.display = "none";
+        });
+    }
 
 function createTransporterVisual(name, location, color = "red") {
     // ✅ Prevent duplicates

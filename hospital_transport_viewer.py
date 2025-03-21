@@ -1,5 +1,7 @@
 from flask import request, jsonify, render_template
 from flask_socketio import SocketIO
+from random_assignment_strategy import RandomAssignmentStrategy
+from ilp_optimizer_strategy import ILPOptimizerStrategy
 
 
 class HospitalTransportViewer:
@@ -17,7 +19,6 @@ class HospitalTransportViewer:
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters)
         self.app.add_url_rule("/get_transport_requests", "get_transport_requests", self.get_transport_requests)
 
-        self.app.add_url_rule("/deploy_optimization", "deploy_optimization", self.deploy_optimization, methods=["POST"])
         self.app.add_url_rule("/return_home", "return_home", self.return_home, methods=["POST"])
         self.app.add_url_rule("/assign_transport", "assign_transport", self.assign_transport, methods=["POST"])
 
@@ -28,6 +29,14 @@ class HospitalTransportViewer:
         self.app.add_url_rule("/remove_transport_request", "remove_transport_request", self.remove_transport_request,
                               methods=["POST"])
         self.app.add_url_rule("/toggle_simulation", "toggle_simulation", self.toggle_simulation, methods=["POST"])
+
+        # 🆕 Strategy switching
+        self.app.add_url_rule("/deploy_strategy_assignment", "deploy_strategy_assignment",
+                              self.deploy_strategy_assignment, methods=["POST"])
+        self.app.add_url_rule("/use_random_assignment", "use_random_assignment",
+                              self.use_random_assignment, methods=["POST"])
+        self.app.add_url_rule("/use_ilp_assignment", "use_ilp_assignment",
+                              self.use_ilp_assignment, methods=["POST"])
 
     # 👇 Views / Endpoints
 
@@ -51,9 +60,6 @@ class HospitalTransportViewer:
 
     def get_transport_requests(self):
         return jsonify(self.system.get_transport_requests())
-
-    def deploy_optimization(self):
-        return jsonify(self.system.deploy_optimization())
 
     def return_home(self):
         data = request.get_json()
@@ -98,3 +104,15 @@ class HospitalTransportViewer:
             self.system.simulation.stop()
 
         return jsonify({"status": "Simulation started" if running else "Simulation stopped"})
+
+    # 🧠 Assignment strategy switching
+    def deploy_strategy_assignment(self):
+        return jsonify(self.system.deploy_strategy_assignment())
+
+    def use_random_assignment(self):
+        self.system.enable_random_mode()
+        return jsonify({"status": "✅ Switched to Random Assignment"})
+
+    def use_ilp_assignment(self):
+        self.system.enable_optimized_mode()
+        return jsonify({"status": "✅ Switched to ILP Optimizer"})

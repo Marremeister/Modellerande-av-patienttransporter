@@ -1,7 +1,8 @@
 import eventlet
 from eventlet.semaphore import Semaphore
-from ilp_optimizer import ILPOptimizer
+from ilp_optimizer_strategy import ILPOptimizerStrategy
 from model_transportation_request import TransportationRequest
+from assignment_strategy import AssignmentStrategy
 
 class TransportManager:
     def __init__(self, hospital, socketio):
@@ -14,21 +15,27 @@ class TransportManager:
         self.completed_requests = []
         self.transport_lock = Semaphore()  # Prevents simultaneous modifications
         self.simulation = None
+        self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
 
-    def deploy_optimization(self):
-        """Runs ILP optimization and assigns transporters in parallel, without blocking the main event loop."""
-        print("🚀 DEBUG: Deploying Optimization...")
+    def set_strategy(self, strategy: AssignmentStrategy):
+        """Dynamically update the assignment strategy (ILP or Random etc)."""
+        self.assignment_strategy = strategy
+        strategy_name = strategy.__class__.__name__
+        self.socketio.emit("transport_log", {
+            "message": f"⚙️ Assignment strategy switched to: {strategy_name}"
+        })
+        print(f"🔄 Assignment strategy switched to: {strategy_name}")
 
-        # ✅ Run optimization in a background thread to prevent UI lag
-        eventlet.spawn_n(self._run_optimization)
+    def deploy_strategy_assignment(self):
+        """Triggers the active assignment strategy to be deployed in a background thread."""
+        print("🚀 DEBUG: Deploying assignment strategy...")
+        eventlet.spawn_n(self.execute_assignment_plan)
+        return {"status": "🚀 Assignment strategy deployed!"}
 
-        return {"status": "🚀 Optimization started! Transporters will move shortly."}
-
-    def _run_optimization(self):
+    def execute_assignment_plan(self):
         """
-        Runs ILP optimization and reassigns all pending transport requests.
-        Preserves in-progress tasks but replaces queued tasks with a new optimized plan.
-        Sends detailed logs to the frontend via transport_log socket events, including estimated durations.
+        Uses the current assignment strategy (ILP, Random, etc) to assign transport requests.
+        Preserves ongoing tasks, clears old queues, and populates new queues.
         """
         self.socketio.emit("transport_log", {"message": "🔁 Re-optimizing all transport assignments..."})
 
@@ -36,8 +43,8 @@ class TransportManager:
         pending_requests = self.pending_requests
         graph = self.hospital.get_graph()
 
-        optimizer = ILPOptimizer(transporters, pending_requests, graph)
-        assignment_plan = optimizer.generate_assignment_plan()
+        # ✅ Use the current strategy (set via `set_strategy`)
+        assignment_plan = self.assignment_strategy.generate_assignment_plan(transporters, pending_requests, graph)
 
         if not assignment_plan:
             self.socketio.emit("transport_log", {
@@ -48,12 +55,11 @@ class TransportManager:
         for transporter in self.transporters:
             assigned_requests = assignment_plan.get(transporter.name, [])
 
-            # ⛔ Skip if transporter is resting
             if transporter.shift_manager.resting:
                 self.socketio.emit("transport_log", {
                     "message": f"💤 {transporter.name} is currently resting and will not be assigned new requests."
                 })
-                transporter.task_queue = assigned_requests  # Pre-queue
+                transporter.task_queue = assigned_requests
                 continue
 
             if transporter.is_busy and transporter.current_task:
@@ -85,33 +91,22 @@ class TransportManager:
                     "message": f"✅ {transporter.name} is idle."
                 })
 
-        # 📝 Summary logs
+        # 📝 Task summary logging
         for transporter in self.transporters:
             self.socketio.emit("transport_log", {
                 "message": f"📝 {transporter.name} task summary:"
             })
 
-            total_duration = 0
-
             if transporter.current_task:
-                duration = optimizer.estimate_travel_time(transporter, transporter.current_task)
-                total_duration += duration
                 self.socketio.emit("transport_log", {
-                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination} (⏱️ ~{duration:.1f}s)"
+                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination}"
                 })
 
             if transporter.task_queue:
                 for i, queued in enumerate(transporter.task_queue):
-                    duration = optimizer.estimate_travel_time(transporter, queued)
-                    total_duration += duration
                     self.socketio.emit("transport_log", {
-                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination} (⏱️ ~{duration:.1f}s)"
+                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination}"
                     })
-
-            if total_duration > 0:
-                self.socketio.emit("transport_log", {
-                    "message": f"⏱️ Estimated total completion time for {transporter.name}: ~{total_duration:.1f}s"
-                })
             elif not transporter.current_task:
                 self.socketio.emit("transport_log", {
                     "message": f"   💤 Idle"
@@ -123,7 +118,7 @@ class TransportManager:
         print(f"🚑 Transporter {transporter.name} added.")
         self.socketio.emit("new_transporter", {"name": transporter.name, "status": transporter.status})
         if self.simulation and self.simulation.is_running():
-            eventlet.spawn_n(self._run_optimization)
+            eventlet.spawn_n(self.execute_assignment_plan())
 
     def get_transporter(self, name):
         """Finds a transporter by name."""
@@ -265,7 +260,7 @@ class TransportManager:
                 "message": f"☀️ {transporter.name} is now rested and ready for new assignments!"
             })
             if self.simulation and self.simulation.is_running():
-                eventlet.spawn_n(self._run_optimization)
+                eventlet.spawn_n(self.execute_assignment_plan())
 
         # Step 6: Continue with next task if available
         if transporter.task_queue:
