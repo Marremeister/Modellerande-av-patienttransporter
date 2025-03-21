@@ -27,7 +27,7 @@ class TransportManager:
         """
         Runs ILP optimization and reassigns all pending transport requests.
         Preserves in-progress tasks but replaces queued tasks with a new optimized plan.
-        Sends detailed logs to the frontend via transport_log socket events.
+        Sends detailed logs to the frontend via transport_log socket events, including estimated durations.
         """
         self.socketio.emit("transport_log", {"message": "🔁 Re-optimizing all transport assignments..."})
 
@@ -81,22 +81,33 @@ class TransportManager:
                     "message": f"✅ {transporter.name} is idle."
                 })
 
-        # 📝 Summary log
+        # 📝 Summary log with estimated durations
         for transporter in self.transporters:
             self.socketio.emit("transport_log", {
                 "message": f"📝 {transporter.name} task summary:"
             })
 
+            total_duration = 0
+
             if transporter.current_task:
+                duration = optimizer.estimate_travel_time(transporter, transporter.current_task)
+                total_duration += duration
                 self.socketio.emit("transport_log", {
-                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination}"
+                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination} (⏱️ ~{duration:.1f}s)"
                 })
 
             if transporter.task_queue:
                 for i, queued in enumerate(transporter.task_queue):
+                    duration = optimizer.estimate_travel_time(transporter, queued)
+                    total_duration += duration
                     self.socketio.emit("transport_log", {
-                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination}"
+                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination} (⏱️ ~{duration:.1f}s)"
                     })
+
+            if total_duration > 0:
+                self.socketio.emit("transport_log", {
+                    "message": f"⏱️ Estimated total completion time for {transporter.name}: ~{total_duration:.1f}s"
+                })
             elif not transporter.current_task:
                 self.socketio.emit("transport_log", {
                     "message": f"   💤 Idle"
