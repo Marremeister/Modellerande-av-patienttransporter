@@ -4,20 +4,29 @@ import matplotlib.gridspec as gridspec
 
 
 class BenchmarkAnalysis:
-    def __init__(self, results_dict):
+    def __init__(self, results_dict, optimal_times=None):
         """
         results_dict: Dictionary with scenario labels as keys and list of durations as values.
-                      Example: { "1 Transporter": [20.1, 22.3, ...], "2 Transporters": [...], ... }
+        optimal_times: Optional dictionary with optimal duration per scenario for visual reference.
         """
         self.results_dict = results_dict
+        self.optimal_times = optimal_times or {}
 
     def plot_main_histogram(self, times, ax, label_prefix=""):
         mean_val = np.mean(times)
         median_val = np.median(times)
+        label = label_prefix.strip()
 
         ax.hist(times, bins=10, edgecolor='black', alpha=0.7)
         ax.axvline(mean_val, color='red', linestyle='dashed', linewidth=2, label=f'{label_prefix}Mean: {mean_val:.1f}')
-        ax.axvline(median_val, color='green', linestyle='dashed', linewidth=2, label=f'{label_prefix}Median: {median_val:.1f}')
+        ax.axvline(median_val, color='green', linestyle='dashed', linewidth=2,
+                   label=f'{label_prefix}Median: {median_val:.1f}')
+
+        # Draw optimal time if available
+        if label in self.optimal_times:
+            optimal = self.optimal_times[label]
+            ax.axvline(optimal, color='blue', linestyle='dotted', linewidth=2, label=f'Optimal: {optimal:.1f}')
+
         ax.set_xlabel(f'{label_prefix}Completion Time (seconds)')
         ax.set_ylabel('Frequency')
         ax.set_title(f'Histogram of {label_prefix}Completion Times')
