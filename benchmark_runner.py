@@ -16,6 +16,16 @@ benchmark_requests = [
     ("Admin Office", "Cafeteria"),
     ("Radiology", "Laboratory"),
     ("Emergency", "Surgery"),
+    ("Reception", "Cardiology"),
+    ("Emergency", "ICU"),
+    ("Reception", "Radiology"),
+    ("ICU", "General Ward"),
+    ("Cardiology", "Surgery"),
+    ("Pharmacy", "Neurology"),
+    ("Pediatrics", "Orthopedics"),
+    ("Admin Office", "Cafeteria"),
+    ("Radiology", "Laboratory"),
+    ("Emergency", "Surgery"),
     ("Reception", "Cardiology")
 ]
 
@@ -82,14 +92,15 @@ def main():
     scenarios = {
         "1 Transporter": ["Alpha"],
         "2 Transporters": ["Alpha", "Beta"],
-        "5 Transporters": ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+        "5 Transporters": ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"],
+        "10 Transporters": ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa"]
     }
 
     for label, transporters in scenarios.items():
         print(f"\n🔬 Benchmarking: {label}")
 
         optimal = run_benchmark(system, "ilp", runs=1, transporter_names=transporters)
-        random = run_benchmark(system, "random", runs=20, transporter_names=transporters)
+        random = run_benchmark(system, "random", runs=1000, transporter_names=transporters)
 
         print(f"  ✅ Optimal: {optimal[0]:.2f} sec")
         print(f"  🎲 Random Mean: {np.mean(random):.2f} sec")

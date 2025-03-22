@@ -1,38 +1,14 @@
 import random
 from assignment_strategy import AssignmentStrategy
+from random_assignment import RandomAssignment
+
+#Värt att skapa en konstruktor, designen känns klunkig.
 
 class RandomAssignmentStrategy(AssignmentStrategy):
     def generate_assignment_plan(self, transporters, requests, graph):
-        plan = {t.name: [] for t in transporters}
-        available = list(transporters)
-
-        for request in requests:
-            if not available:
-                available = list(transporters)
-            transporter = random.choice(available)
-            plan[transporter.name].append(request)
-
-        return plan
+        randomizer = RandomAssignment(transporters, requests, graph)
+        return randomizer.generate_assignment_plan(transporters, requests) #Varför inte använda variable från konstruktor?
 
     def estimate_travel_time(self, transporter, request):
-        try:
-            pathfinder = transporter.pathfinder
-            graph = transporter.hospital.get_graph()
-
-            # Time from current location to request origin
-            path_to_origin, _ = pathfinder.dijkstra(transporter.current_location, request.origin)
-            time_to_origin = sum(
-                graph.get_edge_weight(path_to_origin[i], path_to_origin[i + 1])
-                for i in range(len(path_to_origin) - 1)
-            )
-
-            # Time from origin to destination
-            path_to_destination, _ = pathfinder.dijkstra(request.origin, request.destination)
-            time_to_destination = sum(
-                graph.get_edge_weight(path_to_destination[i], path_to_destination[i + 1])
-                for i in range(len(path_to_destination) - 1)
-            )
-
-            return time_to_origin + time_to_destination
-        except Exception:
-            return 9999  # fallback if path can't be found
+        randomizer = RandomAssignment([], [], transporter.hospital.get_graph())
+        return randomizer.estimate_travel_time(transporter, request)
