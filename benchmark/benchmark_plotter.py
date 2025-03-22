@@ -55,6 +55,25 @@ class BenchmarkAnalysis:
         ax.set_title(f'Summary Metrics ({label_prefix.strip()})')
         ax.set_ylabel('Seconds')
 
+    # benchmark_plotter.py (inside BenchmarkAnalysis)
+    def plot_side_by_side_workload(self, workload_opt, workload_rand, strategy_labels=("Optimal", "Random")):
+        fig, axs = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
+
+        for ax, workload, label in zip(axs, [workload_opt, workload_rand], strategy_labels):
+            names = list(workload.keys())
+            durations = list(workload.values())
+
+            ax.bar(names, durations, color='skyblue')
+            ax.set_title(f"{label} Workload")
+            ax.set_xlabel("Transporter")
+            ax.set_ylabel("Total Time (s)")
+            ax.set_xticklabels(names, rotation=45)
+            ax.grid(axis='y', linestyle='--', alpha=0.6)
+
+        fig.suptitle("Workload Distribution Comparison")
+        plt.tight_layout()
+        plt.show()
+
     def analyze_all(self):
         for label, times in self.results_dict.items():
             times = np.array(times)
@@ -71,3 +90,12 @@ class BenchmarkAnalysis:
             self.plot_summary_metrics(times, ax_summary, label_prefix=label + " ")
 
             plt.show()
+
+    def print_workload_stats(self, workload_dict, strategy_name):
+        values = np.array(list(workload_dict.values()))
+        print(f"📊 {strategy_name} Workload Stats:")
+        print(f"   ▪️ Mean:   {np.mean(values):.2f}")
+        print(f"   ▪️ Std Dev:{np.std(values):.2f}")
+        print(f"   ▪️ Max:    {np.max(values):.2f}")
+        print(f"   ▪️ Min:    {np.min(values):.2f}")
+        print()
