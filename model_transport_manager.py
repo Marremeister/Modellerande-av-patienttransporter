@@ -55,7 +55,6 @@ class TransportManager:
             "message": f"🧍 Transporter Status — Resting: {resting}, Busy: {busy}, Idle: {idle}"
         })
 
-        # ✅ Use the current strategy (set via `set_strategy`)
         assignment_plan = self.assignment_strategy.generate_assignment_plan(transporters, pending_requests, graph)
 
         if not assignment_plan:
@@ -64,7 +63,6 @@ class TransportManager:
             })
             return
 
-        # Optional: use optimizer to estimate times (for logging)
         optimizer = None
         if isinstance(self.assignment_strategy, ILPOptimizerStrategy):
             from ilp_optimizer import ILPOptimizer
@@ -85,6 +83,16 @@ class TransportManager:
                     "message": f"🔒 Preserving current task for {transporter.name}: "
                                f"{transporter.current_task.origin} ➝ {transporter.current_task.destination}"
                 })
+
+                current_req = transporter.current_task
+
+                # 🧠 Avoid re-assigning the same request that's already ongoing
+                assigned_requests = [
+                    req for req in assigned_requests
+                    if not (req.origin == current_req.origin and req.destination == current_req.destination)
+                ]
+
+                # 🔁 Queue is safely updated; current task continues
                 transporter.task_queue = assigned_requests
 
             elif assigned_requests:
@@ -145,12 +153,27 @@ class TransportManager:
                 })
 
     def add_transporter(self, transporter):
-        """Adds a new transporter to the system."""
+        transporter.current_location = "Transporter Lounge"
+        transporter.task_queue = []
+        transporter.current_task = None
+        transporter.is_busy = False
+
         self.transporters.append(transporter)
+
         print(f"🚑 Transporter {transporter.name} added.")
-        self.socketio.emit("new_transporter", {"name": transporter.name, "status": transporter.status})
-        if self.simulation and self.simulation.is_running():
-            eventlet.spawn_n(self.execute_assignment_plan())
+        self.socketio.emit("new_transporter", {
+            "name": transporter.name,
+            "status": transporter.status,
+            "current_location": transporter.current_location
+        })
+
+        self.socketio.emit("transport_log", {
+            "message": f"🆕 {transporter.name} added at {transporter.current_location} and is ready for assignments."
+        })
+
+        # ✅ Trigger reoptimization if there are pending tasks
+        if self.pending_requests:
+            self.deploy_strategy_assignment()
 
     def get_transporter(self, name):
         """Finds a transporter by name."""
@@ -292,7 +315,7 @@ class TransportManager:
                 "message": f"☀️ {transporter.name} is now rested and ready for new assignments!"
             })
             if self.simulation and self.simulation.is_running():
-                eventlet.spawn_n(self.execute_assignment_plan())
+                eventlet.spawn_n(self.execute_assignment_plan)
 
         # Step 6: Continue with next task if available
         if transporter.task_queue:
@@ -350,6 +373,4 @@ class TransportManager:
 
     def set_simulation_state(self, running: bool):
         self.simulation_running = running
-
-
 

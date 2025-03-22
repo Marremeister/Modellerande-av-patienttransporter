@@ -298,8 +298,10 @@ function deployRandomness() {
             logEvent(`❌ Error: ${data.error}`, "error");
         } else {
             logEvent(`✅ Transporter ${transporterName} added successfully!`, "success");
-            document.getElementById("transporterName").value = ""; // Rensa fältet
-            loadTransporters(); // Uppdatera dropdown-listan
+            document.getElementById("transporterName").value = ""; // Clear the input
+
+            // ❌ DO NOT call loadTransporters()
+            // ✅ The socket listener will handle visuals!
         }
     })
     .catch(error => logEvent(`❌ Error: ${error}`, "error"));
@@ -553,8 +555,21 @@ socket.on("transport_log", function (data) {
 
 socket.on("new_transporter", function (data) {
     console.log("🚑 New transporter added:", data);
-    loadTransporters(); // Laddar om dropdown-listan
+
+    // ✅ Only add the new one visually (no full redraw)
+    let color = data.status === "active" ? "red" : "gray";
+    createTransporterVisual(data.name, data.current_location, color);
+
+    // ✅ Also update the transporter dropdown
+    if (data.status === "active") {
+        let select = document.getElementById("transporterSelect");
+        let option = document.createElement("option");
+        option.value = data.name;
+        option.textContent = data.name;
+        select.appendChild(option);
+    }
 });
+
 socket.on("transporter_update", function (data) {
     console.log("🚚 Transporter update received:", data);
     updateTransporterPath(data.name, data.path, data.durations);
