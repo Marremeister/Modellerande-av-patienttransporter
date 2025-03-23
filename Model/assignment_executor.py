@@ -1,4 +1,5 @@
 import eventlet
+from Model.model_transportation_request import TransportationRequest
 
 
 class AssignmentExecutor:
@@ -11,7 +12,7 @@ class AssignmentExecutor:
         self._emit_reoptimization_start()
 
         transporters = self.tm.get_transporter_objects()
-        pending_requests = self.tm.pending_requests
+        pending_requests = TransportationRequest.pending_requests  # ✅ centralized tracking
         graph = self.tm.hospital.get_graph()
 
         self._emit_pending_status(pending_requests)
@@ -69,8 +70,9 @@ class AssignmentExecutor:
         first = assigned_requests.pop(0)
         transporter.current_task = first
         transporter.is_busy = True
-        first.status = "ongoing"
-        self.tm.ongoing_requests.append(first)
+
+        # ✅ Centralized tracking
+        first.mark_as_ongoing()
 
         self.socketio.emit("transport_log", {
             "message": f"🚑 Assigned {transporter.name} to: {first.origin} ➝ {first.destination}"
@@ -153,4 +155,3 @@ class AssignmentExecutor:
         self.socketio.emit("transport_log", {
             "message": "❌ Optimization failed or no assignments available."
         })
-

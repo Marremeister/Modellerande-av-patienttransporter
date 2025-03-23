@@ -1,5 +1,8 @@
 # benchmark_model.py
+
+from Model.model_transportation_request import TransportationRequest
 import numpy as np
+
 class BenchmarkModel:
     def __init__(self, system):
         self.system = system
@@ -21,7 +24,7 @@ class BenchmarkModel:
                 self.system.enable_optimized_mode()
 
             transporters = self.system.transport_manager.get_transporter_objects()
-            pending = self.system.transport_manager.pending_requests
+            pending = TransportationRequest.pending_requests
             graph = self.system.hospital.get_graph()
             strategy = self.system.transport_manager.assignment_strategy
             plan = strategy.generate_assignment_plan(transporters, pending, graph)
@@ -53,7 +56,7 @@ class BenchmarkModel:
             self.system.enable_optimized_mode()
 
         transporters = self.system.transport_manager.get_transporter_objects()
-        pending = self.system.transport_manager.pending_requests
+        pending = TransportationRequest.pending_requests
         graph = self.system.hospital.get_graph()
         strategy = self.system.transport_manager.assignment_strategy
 
@@ -72,11 +75,10 @@ class BenchmarkModel:
         return np.std(list(workload_dict.values()))
 
     def _reset_system(self):
-        tm = self.system.transport_manager
-        tm.transporters = []
-        tm.pending_requests = []
-        tm.ongoing_requests = []
-        tm.completed_requests = []
+        self.system.transport_manager.transporters = []
+        TransportationRequest.pending_requests.clear()
+        TransportationRequest.ongoing_requests.clear()
+        TransportationRequest.completed_requests.clear()
 
     def _add_transporters(self, names):
         for name in names:

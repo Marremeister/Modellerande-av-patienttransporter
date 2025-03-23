@@ -1,24 +1,36 @@
+import uuid
+import time
+
 class TransportationRequest:
-    def __init__(self, origin, destination, transport_type="stretcher", urgent=False):
-        """Represents a transport request for a patient/item."""
+    # Class-level tracking of all requests
+    pending_requests = []
+    ongoing_requests = []
+    completed_requests = []
+
+    def __init__(self, origin, destination, transport_type="stretcher", urgent=False, request_time=None):
+        self.id = str(uuid.uuid4())  # Unique ID for each request
         self.origin = origin
         self.destination = destination
         self.transport_type = transport_type
         self.urgent = urgent
-        self.status = "pending"  # Default status
+        self.status = "pending"
+        self.request_time = request_time or time.time()
 
     def mark_as_ongoing(self):
-        """Marks request as ongoing."""
         self.status = "ongoing"
+        if self in TransportationRequest.pending_requests:
+            TransportationRequest.pending_requests.remove(self)
+        TransportationRequest.ongoing_requests.append(self)
 
     def mark_as_completed(self):
-        """Marks request as completed."""
         self.status = "completed"
-
+        if self in TransportationRequest.ongoing_requests:
+            TransportationRequest.ongoing_requests.remove(self)
+        TransportationRequest.completed_requests.append(self)
 
     def to_dict(self):
-        """Convert request to JSON serializable format"""
         return {
+            "id": self.id,
             "request_time": self.request_time,
             "origin": self.origin,
             "destination": self.destination,
@@ -29,17 +41,40 @@ class TransportationRequest:
 
     @classmethod
     def create(cls, origin, destination, transport_type="stretcher", urgent=False):
-        """Creates and stores a new transport request."""
-        request_obj = cls(request_time=None, origin=origin, destination=destination, transport_type=transport_type, urgent=urgent)
+        request_obj = cls(origin=origin, destination=destination, transport_type=transport_type, urgent=urgent)
         cls.pending_requests.append(request_obj)
         print(f"📦 Transport request created: {origin} → {destination} ({transport_type}, Urgent: {urgent})")
         return request_obj
 
     @classmethod
     def get_requests(cls):
-        """Returns all transport requests grouped by status."""
         return {
             "pending": [r.to_dict() for r in cls.pending_requests],
             "ongoing": [r.to_dict() for r in cls.ongoing_requests],
             "completed": [r.to_dict() for r in cls.completed_requests]
         }
+
+    @classmethod
+    def remove_completed_request(cls, request_key):
+        cls.completed_requests = [
+            r for r in cls.completed_requests
+            if f"{r.origin}-{r.destination}" != request_key
+        ]
+
+    @classmethod
+    def remove_from_tracking(cls, request):
+        if request in cls.pending_requests:
+            cls.pending_requests.remove(request)
+        if request in cls.ongoing_requests:
+            cls.ongoing_requests.remove(request)
+        if request in cls.completed_requests:
+            cls.completed_requests.remove(request)
+
+    def __repr__(self):
+        return f"<Request {self.id[:6]}: {self.origin} → {self.destination}, urgent={self.urgent}>"
+
+    def __eq__(self, other):
+        return isinstance(other, TransportationRequest) and self.id == other.id
+
+    def __hash__(self):
+        return hash(self.id)

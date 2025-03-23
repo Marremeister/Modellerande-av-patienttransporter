@@ -1,15 +1,15 @@
+from pulp import lpSum, LpVariable
 from Model.Assignment_strategies.ILP.ilp_core import ILPCore
-from pulp import lpSum
+
 
 class ILPEqualWorkload(ILPCore):
     def define_objective(self):
-        total_work = {
-            t.name: lpSum(
-                self.variables[(t.name, r)] * self.estimate_travel_time(t, r)
-                for r in self.requests
-            )
-            for t in self.transporters
-        }
+        self.max_requests = LpVariable("max_requests", lowBound=0)
 
-        mean_work = lpSum(total_work.values()) / len(self.transporters)
-        self.model += lpSum((total_work[t] - mean_work) ** 2 for t in total_work)
+        for t in self.transporters:
+            total = lpSum(
+                self.assign_vars[(t.name, r.id)] for r in self.requests
+            )
+            self.model += (total <= self.max_requests, f"MaxRequests_{t.name}")
+
+        self.model += self.max_requests

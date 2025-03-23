@@ -1,9 +1,9 @@
 import eventlet
 
 from Model.Assignment_strategies.ILP.ilp_optimizer_strategy import ILPOptimizerStrategy
-from Model.model_transportation_request import TransportationRequest
 from Model.Assignment_strategies.assignment_strategy import AssignmentStrategy
 from Model.assignment_executor import AssignmentExecutor
+from Model.model_transportation_request import TransportationRequest
 
 class TransportManager:
     def __init__(self, hospital, socketio):
@@ -11,9 +11,6 @@ class TransportManager:
         self.hospital = hospital
         self.socketio = socketio
         self.transporters = []
-        self.pending_requests = []
-        self.ongoing_requests = []
-        self.completed_requests = []
         self.simulation = None
         self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
 
@@ -36,7 +33,6 @@ class TransportManager:
         executor = AssignmentExecutor(self, self.socketio, self.assignment_strategy)
         executor.run()
 
-
     def add_transporter(self, transporter):
         transporter.current_location = "Transporter Lounge"
         transporter.task_queue = []
@@ -56,8 +52,10 @@ class TransportManager:
             "message": f"🆕 {transporter.name} added at {transporter.current_location} and is ready for assignments."
         })
 
-        # ✅ Trigger reoptimization if there are pending tasks
-        if self.pending_requests:
+        if self.has_assignable_work():
+            self.socketio.emit("transport_log", {
+                "message": f"🔁 Re-optimizing all assignments after adding {transporter.name}"
+            })
             self.deploy_strategy_assignment()
 
     def get_transporter(self, name):
@@ -105,15 +103,13 @@ class TransportManager:
             print(f"❌ ERROR: Transporter {transporter.name} is INACTIVE")
             return {"error": f"❌ {transporter.name} is inactive and cannot be assigned a task."}, 400
 
-        if request_obj not in self.pending_requests:
+        if request_obj not in TransportationRequest.pending_requests:
             print(
                 f"❌ ERROR: Transport Request {request_obj.origin} → {request_obj.destination} NOT FOUND in pending_requests")
             return {"error": "Transport request not found or already assigned"}, 400
 
         # Move request to ongoing
-        self.pending_requests.remove(request_obj)
-        self.ongoing_requests.append(request_obj)
-        request_obj.status = "ongoing"
+        request_obj.mark_as_ongoing()
 
         print(f"🚑 {transporter.name} assigned transport: {request_obj.origin} ➝ {request_obj.destination}")
 
@@ -164,13 +160,8 @@ class TransportManager:
             return
 
         # Step 3: Complete transport
-        request.status = "completed"
-        if request in self.ongoing_requests:
-            self.ongoing_requests.remove(request)
-        if request in self.pending_requests:
-            self.pending_requests.remove(request)
 
-        self.completed_requests.append(request)
+        request.mark_as_completed()
 
         self.socketio.emit("transport_log", {
             "message": f"🏁 {transporter.name} completed transport from {request.origin} to {request.destination}."
@@ -206,8 +197,7 @@ class TransportManager:
         if transporter.task_queue:
             next_request = transporter.task_queue.pop(0)
             transporter.current_task = next_request
-            self.ongoing_requests.append(next_request)
-            next_request.status = "ongoing"
+            next_request.mark_as_ongoing()
             eventlet.spawn_n(self.process_transport, transporter, next_request)
         else:
             transporter.current_task = None
@@ -236,25 +226,26 @@ class TransportManager:
 
     def create_transport_request(self, origin, destination, transport_type="stretcher", urgent=False):
         """Creates and stores a transport request."""
-        request = TransportationRequest(origin, destination, transport_type, urgent)
-        self.pending_requests.append(request)  # 🔥 Store in pending list
-
-        print(f"📦 New Transport Request: {origin} → {destination} (Type: {transport_type}, Urgent: {urgent})")
-
+        request = TransportationRequest.create(origin, destination, transport_type, urgent)
         return request
 
     def remove_transport_request(self, request_key):
         """Removes a transport request from completed requests."""
-        self.completed_requests = [r for r in self.completed_requests if f"{r.origin}-{r.destination}" != request_key]
+        TransportationRequest.remove_completed_request(request_key)
         return {"status": f"Request {request_key} removed."}
 
     def get_transport_requests(self):
         """Returns all transport requests categorized by status."""
-        return {
-            "pending": [vars(r) for r in self.pending_requests],
-            "ongoing": [vars(r) for r in self.ongoing_requests],
-            "completed": [vars(r) for r in self.completed_requests]
-        }
+        return TransportationRequest.get_requests()
 
     def set_simulation_state(self, running: bool):
         self.simulation_running = running
+
+    def has_assignable_work(self):
+        if TransportationRequest.pending_requests:
+            return True
+        for transporter in self.transporters:
+            if transporter.task_queue:
+                return True
+        return False
+

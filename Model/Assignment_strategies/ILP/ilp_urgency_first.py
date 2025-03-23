@@ -1,12 +1,11 @@
-from Model.Assignment_strategies.ILP.ilp_core import ILPCore
 from pulp import lpSum
+from Model.Assignment_strategies.ILP.ilp_core import ILPCore
+
 
 class ILPUrgencyFirst(ILPCore):
     def define_objective(self):
         self.model += lpSum(
-            self.variables[(t.name, r)] * (
-                self.estimate_travel_time(t, r) * (0.5 if r.urgent else 1.0)
-            )
+            self.assign_vars[(t.name, r.id)] * (10 if r.urgent else 1)
             for t in self.transporters
             for r in self.requests
         )

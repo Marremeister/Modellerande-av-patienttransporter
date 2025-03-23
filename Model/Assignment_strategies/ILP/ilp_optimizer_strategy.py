@@ -9,23 +9,25 @@ from Model.Assignment_strategies.ILP.ilp_urgency_first import ILPUrgencyFirst
 
 
 class ILPOptimizerStrategy(AssignmentStrategy):
-    def __init__(self, mode: ILPMode = ILPMode.MAKESPAN):
+    def __init__(self, mode=ILPMode.MAKESPAN):
         self.mode = mode
+        self.optimizer = None
 
     def generate_assignment_plan(self, transporters, requests, graph):
-        return self._get_ilp_core(transporters, requests, graph).build_and_solve()
-
-    def estimate_travel_time(self, transporter, request):
-        return transporter.pathfinder.estimate_cost(transporter.current_location, request.origin) + \
-               transporter.pathfinder.estimate_cost(request.origin, request.destination)
+        self.optimizer = self.get_optimizer(transporters, requests, graph)
+        return self.optimizer.build_and_solve()
 
     def get_optimizer(self, transporters, requests, graph):
-        return self._get_ilp_core(transporters, requests, graph)
-
-    def _get_ilp_core(self, transporters, requests, graph):
-        if self.mode == ILPMode.EQUAL_WORKLOAD:
+        if self.mode == ILPMode.MAKESPAN:
+            return ILPMakespan(transporters, requests, graph)
+        elif self.mode == ILPMode.EQUAL_WORKLOAD:
             return ILPEqualWorkload(transporters, requests, graph)
         elif self.mode == ILPMode.URGENCY_FIRST:
             return ILPUrgencyFirst(transporters, requests, graph)
         else:
-            return ILPMakespan(transporters, requests, graph)
+            raise ValueError(f"Unsupported ILP Mode: {self.mode}")
+
+    def estimate_travel_time(self, transporter, request):
+        if not self.optimizer:
+            raise RuntimeError("ILPOptimizerStrategy: optimizer not initialized.")
+        return self.optimizer.estimate_travel_time(transporter, request)

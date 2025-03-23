@@ -1,6 +1,12 @@
 from Controller.hospital_controller import HospitalController
 from benchmark_controller import BenchmarkController
 
+# ✅ Add MockSocketIO to disable emit during benchmarking
+class MockSocketIO:
+    def emit(self, *args, **kwargs):
+        pass
+
+# 🧪 Sample transport requests for benchmarking
 benchmark_requests = [
     ("Emergency", "ICU"),
     ("Reception", "Radiology"),
@@ -25,11 +31,15 @@ benchmark_requests = [
 ]
 
 if __name__ == "__main__":
-    controller = HospitalController()
+    mock_socketio = MockSocketIO()
+
+    # ✅ Use mock socketio to disable real-time events
+    controller = HospitalController(socketio=mock_socketio)
     controller.system.initialize()
 
     benchmark = BenchmarkController(controller.system)
 
+    # 🧪 Benchmark scenarios with different transporter setups
     scenarios = {
         "1 Transporter": ["Alpha"],
         "2 Transporters": ["Alpha", "Beta"],

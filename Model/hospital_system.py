@@ -5,6 +5,7 @@ from Model.simulation import Simulation
 from Model.Assignment_strategies.ILP.ilp_optimizer_strategy import ILPOptimizerStrategy
 from Model.Assignment_strategies.Random.random_assignment_strategy import RandomAssignmentStrategy
 from Model.Assignment_strategies.ILP.ilp_mode import ILPMode
+from Model.model_transportation_request import TransportationRequest
 
 
 class HospitalSystem:
@@ -112,7 +113,7 @@ class HospitalSystem:
             return self._error("Transporter not found")
 
         request_obj = next(
-            (r for r in self.transport_manager.pending_requests
+            (r for r in TransportationRequest.pending_requests
              if r.origin == origin and r.destination == destination),
             None
         )
