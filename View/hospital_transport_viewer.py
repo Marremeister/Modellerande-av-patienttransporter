@@ -1,8 +1,6 @@
 from flask import request, jsonify, render_template
 from flask_socketio import SocketIO
 
-
-
 class HospitalTransportViewer:
     def __init__(self, app, socketio: SocketIO, hospital_system):
         self.app = app

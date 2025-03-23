@@ -1,6 +1,6 @@
 import eventlet
-from model_pathfinder import Pathfinder
-from model_shift_manager import ShiftManager
+from Model.model_pathfinder import Pathfinder
+from Model.model_shift_manager import ShiftManager
 
 class PatientTransporter:
     def __init__(self, hospital, name, socketio, start_location="Transporter Lounge"):

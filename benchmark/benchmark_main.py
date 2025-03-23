@@ -1,4 +1,4 @@
-from hospital_controller import HospitalController
+from Controller.hospital_controller import HospitalController
 from benchmark_controller import BenchmarkController
 
 benchmark_requests = [

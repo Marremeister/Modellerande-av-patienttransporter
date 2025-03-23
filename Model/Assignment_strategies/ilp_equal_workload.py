@@ -1,4 +1,4 @@
-from ilp_core import ILPCore
+from Model.Assignment_strategies.ilp_core import ILPCore
 from pulp import lpSum
 
 class ILPEqualWorkload(ILPCore):

@@ -1,10 +1,10 @@
-from hospital_model import Hospital
-from model_transport_manager import TransportManager
-from model_patient_transporters import PatientTransporter
-from simulation import Simulation
-from ilp_optimizer_strategy import ILPOptimizerStrategy
-from random_assignment_strategy import RandomAssignmentStrategy
-from ilp_mode import ILPMode
+from Model.hospital_model import Hospital
+from Model.model_transport_manager import TransportManager
+from Model.model_patient_transporters import PatientTransporter
+from Model.simulation import Simulation
+from Model.Assignment_strategies.ilp_optimizer_strategy import ILPOptimizerStrategy
+from Model.Assignment_strategies.random_assignment_strategy import RandomAssignmentStrategy
+from Model.Assignment_strategies.ilp_mode import ILPMode
 
 
 class HospitalSystem:

@@ -1,6 +1,6 @@
 import random
-from assignment_strategy import AssignmentStrategy
-from random_assignment import RandomAssignment
+from Model.Assignment_strategies.assignment_strategy import AssignmentStrategy
+from Model.Assignment_strategies.random_assignment import RandomAssignment
 
 #Värt att skapa en konstruktor, designen känns klunkig.
 

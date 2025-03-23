@@ -1,9 +1,9 @@
 import eventlet
 
-from ilp_optimizer_strategy import ILPOptimizerStrategy
-from model_transportation_request import TransportationRequest
-from assignment_strategy import AssignmentStrategy
-from assignment_executor import AssignmentExecutor
+from Model.Assignment_strategies.ilp_optimizer_strategy import ILPOptimizerStrategy
+from Model.model_transportation_request import TransportationRequest
+from Model.Assignment_strategies.assignment_strategy import AssignmentStrategy
+from Model.assignment_executor import AssignmentExecutor
 
 class TransportManager:
     def __init__(self, hospital, socketio):
