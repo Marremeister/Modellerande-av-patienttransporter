@@ -59,18 +59,27 @@ class BenchmarkAnalysis:
     def plot_side_by_side_workload(self, workload_opt, workload_rand, strategy_labels=("Optimal", "Random")):
         fig, axs = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
-        for ax, workload, label in zip(axs, [workload_opt, workload_rand], strategy_labels):
+        workloads = [workload_opt, workload_rand]
+
+        for ax, workload, label in zip(axs, workloads, strategy_labels):
             names = list(workload.keys())
             durations = list(workload.values())
+            std_dev = np.std(durations)
 
             ax.bar(names, durations, color='skyblue')
-            ax.set_title(f"{label} Workload")
+            ax.set_title(f"{label} Workload (Std: {std_dev:.2f})")
             ax.set_xlabel("Transporter")
             ax.set_ylabel("Total Time (s)")
+            ax.set_xticks(range(len(names)))
             ax.set_xticklabels(names, rotation=45)
             ax.grid(axis='y', linestyle='--', alpha=0.6)
 
-        fig.suptitle("Workload Distribution Comparison")
+            # 🧠 Add text annotation in the top corner of the plot
+            ax.text(0.95, 0.95, f"σ = {std_dev:.2f}", transform=ax.transAxes,
+                    fontsize=12, verticalalignment='top', horizontalalignment='right',
+                    bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round,pad=0.3'))
+
+        fig.suptitle("Workload Distribution Comparison (w/ Std Dev)", fontsize=16)
         plt.tight_layout()
         plt.show()
 
