@@ -4,7 +4,7 @@ from model_patient_transporters import PatientTransporter
 from simulation import Simulation
 from ilp_optimizer_strategy import ILPOptimizerStrategy
 from random_assignment_strategy import RandomAssignmentStrategy
-
+from ilp_mode import ILPMode
 
 
 class HospitalSystem:
@@ -167,8 +167,18 @@ class HospitalSystem:
     def enable_random_mode(self):
         self.transport_manager.set_strategy(RandomAssignmentStrategy())
 
-    def enable_optimized_mode(self):
-        self.transport_manager.set_strategy(ILPOptimizerStrategy())
+    def enable_optimized_mode(self, mode: ILPMode = ILPMode.MAKESPAN):
+        """Allows setting the ILP strategy dynamically."""
+        self.transport_manager.set_strategy(ILPOptimizerStrategy(mode))
+
+    def use_ilp_equal_workload(self):
+        self.enable_optimized_mode(ILPMode.EQUAL_WORKLOAD)
+
+    def use_ilp_urgency_first(self):
+        self.enable_optimized_mode(ILPMode.URGENCY_FIRST)
+
+    def use_ilp_makespan(self):
+        self.enable_optimized_mode(ILPMode.MAKESPAN)
 
     # -----------------------------
     # 🔹 Helpers

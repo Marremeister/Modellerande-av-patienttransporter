@@ -1,5 +1,4 @@
 # benchmark_model.py
-from hospital_controller import HospitalController
 import numpy as np
 class BenchmarkModel:
     def __init__(self, system):
