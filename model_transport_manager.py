@@ -258,8 +258,3 @@ class TransportManager:
 
     def set_simulation_state(self, running: bool):
         self.simulation_running = running
-
-
-    #HELPER METHODS
-
-
