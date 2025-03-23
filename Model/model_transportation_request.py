@@ -15,18 +15,25 @@ class TransportationRequest:
         self.urgent = urgent
         self.status = "pending"
         self.request_time = request_time or time.time()
+        self.has_started = False  # ✅ Track if the request has been started
 
     def mark_as_ongoing(self):
         self.status = "ongoing"
+        self.has_started = True  # ✅ Mark it as started
         if self in TransportationRequest.pending_requests:
             TransportationRequest.pending_requests.remove(self)
-        TransportationRequest.ongoing_requests.append(self)
+        if self not in TransportationRequest.ongoing_requests:
+            TransportationRequest.ongoing_requests.append(self)
 
     def mark_as_completed(self):
         self.status = "completed"
         if self in TransportationRequest.ongoing_requests:
             TransportationRequest.ongoing_requests.remove(self)
-        TransportationRequest.completed_requests.append(self)
+        if self not in TransportationRequest.completed_requests:
+            TransportationRequest.completed_requests.append(self)
+
+    def is_reassignable(self):
+        return not self.has_started  # ✅ Used for optimization filtering
 
     def to_dict(self):
         return {
@@ -36,7 +43,8 @@ class TransportationRequest:
             "destination": self.destination,
             "transport_type": self.transport_type,
             "urgent": self.urgent,
-            "status": self.status
+            "status": self.status,
+            "has_started": self.has_started  # ✅ Expose to frontend/logs if needed
         }
 
     @classmethod
@@ -69,6 +77,10 @@ class TransportationRequest:
             cls.ongoing_requests.remove(request)
         if request in cls.completed_requests:
             cls.completed_requests.remove(request)
+
+    @classmethod
+    def get_assignable_requests(cls):
+        return [r for r in cls.pending_requests if not hasattr(r, 'locked') or not r.locked]
 
     def __repr__(self):
         return f"<Request {self.id[:6]}: {self.origin} → {self.destination}, urgent={self.urgent}>"

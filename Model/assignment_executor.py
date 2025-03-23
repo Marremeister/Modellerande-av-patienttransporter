@@ -3,30 +3,32 @@ from Model.model_transportation_request import TransportationRequest
 
 
 class AssignmentExecutor:
-    def __init__(self, transport_manager, socketio, strategy):
+    def __init__(self, transport_manager, socketio, strategy, assignable_requests=None):
         self.tm = transport_manager
         self.socketio = socketio
         self.strategy = strategy
+        self.assignable_requests = assignable_requests  # ✅ Optional override
 
     def run(self):
         self._emit_reoptimization_start()
 
         transporters = self.tm.get_transporter_objects()
-        pending_requests = TransportationRequest.pending_requests  # ✅ centralized tracking
+        all_requests = self.assignable_requests or TransportationRequest.get_assignable_requests()
+
         graph = self.tm.hospital.get_graph()
 
-        self._emit_pending_status(pending_requests)
+        self._emit_pending_status(all_requests)
         self._emit_transporter_status(transporters)
 
         assignment_plan = self.strategy.generate_assignment_plan(
-            transporters, pending_requests, graph
+            transporters, all_requests, graph
         )
 
         if not assignment_plan:
             self._emit_no_assignment_found()
             return
 
-        optimizer = self.strategy.get_optimizer(transporters, pending_requests, graph)
+        optimizer = self.strategy.get_optimizer(transporters, all_requests, graph)
 
         for transporter in transporters:
             self._assign_tasks_to_transporter(transporter, assignment_plan, optimizer)

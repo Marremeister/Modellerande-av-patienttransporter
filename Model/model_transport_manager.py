@@ -7,7 +7,6 @@ from Model.model_transportation_request import TransportationRequest
 
 class TransportManager:
     def __init__(self, hospital, socketio):
-        """Handles transport assignments and manages transporters."""
         self.hospital = hospital
         self.socketio = socketio
         self.transporters = []
@@ -15,7 +14,6 @@ class TransportManager:
         self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
 
     def set_strategy(self, strategy: AssignmentStrategy):
-        """Dynamically update the assignment strategy (ILP or Random etc)."""
         self.assignment_strategy = strategy
         strategy_name = strategy.__class__.__name__
         self.socketio.emit("transport_log", {
@@ -24,14 +22,33 @@ class TransportManager:
         print(f"🔄 Assignment strategy switched to: {strategy_name}")
 
     def deploy_strategy_assignment(self):
-        """Triggers the active assignment strategy to be deployed in a background thread."""
         print("🚀 DEBUG: Deploying assignment strategy...")
         eventlet.spawn_n(self.execute_assignment_plan)
         return {"status": "🚀 Assignment strategy deployed!"}
 
     def execute_assignment_plan(self):
-        executor = AssignmentExecutor(self, self.socketio, self.assignment_strategy)
+        assignable_requests = TransportationRequest.get_assignable_requests()  # ✅ Gather reassignable ones
+        executor = AssignmentExecutor(self, self.socketio, self.assignment_strategy, assignable_requests)
         executor.run()
+
+    def get_assignable_requests(self):
+        # ✅ Collect all reassignable requests from pending + task queues
+        assignable = set(r for r in TransportationRequest.pending_requests if r.is_reassignable())
+
+        for transporter in self.transporters:
+            for r in transporter.task_queue:
+                if r.is_reassignable():
+                    assignable.add(r)
+
+        return list(assignable)
+
+    def has_assignable_work(self):
+        if any(r.is_reassignable() for r in TransportationRequest.pending_requests):
+            return True
+        for transporter in self.transporters:
+            if any(r.is_reassignable() for r in transporter.task_queue):
+                return True
+        return False
 
     def add_transporter(self, transporter):
         transporter.current_location = "Transporter Lounge"
