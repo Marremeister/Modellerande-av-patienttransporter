@@ -1,11 +1,11 @@
 # ilp_optimizer_strategy.py
 from Model.Assignment_strategies.assignment_strategy import AssignmentStrategy
-from Model.Assignment_strategies.ilp_mode import ILPMode
+from Model.Assignment_strategies.ILP.ilp_mode import ILPMode
 
 # Import your ILPCore subclasses
-from Model.Assignment_strategies.ilp_makespan import ILPMakespan
-from Model.Assignment_strategies.ilp_equal_workload import ILPEqualWorkload
-from Model.Assignment_strategies.ilp_urgency_first import ILPUrgencyFirst
+from Model.Assignment_strategies.ILP.ilp_makespan import ILPMakespan
+from Model.Assignment_strategies.ILP.ilp_equal_workload import ILPEqualWorkload
+from Model.Assignment_strategies.ILP.ilp_urgency_first import ILPUrgencyFirst
 
 
 class ILPOptimizerStrategy(AssignmentStrategy):

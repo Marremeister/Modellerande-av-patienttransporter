@@ -1,4 +1,4 @@
-from Model.Assignment_strategies.ilp_core import ILPCore
+from Model.Assignment_strategies.ILP.ilp_core import ILPCore
 from pulp import LpVariable, lpSum
 
 class ILPMakespan(ILPCore):
