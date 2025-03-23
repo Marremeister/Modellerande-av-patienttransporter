@@ -9,3 +9,8 @@ class ILPOptimizerStrategy(AssignmentStrategy):
     def estimate_travel_time(self, transporter, request):
         # Fallback ILP instance to reuse estimation logic
         return ILPOptimizer([], [], transporter.hospital.get_graph()).estimate_travel_time(transporter, request)
+
+    def get_optimizer(self, transporters, requests, graph):
+        return ILPOptimizer(transporters, requests, graph)
+
+

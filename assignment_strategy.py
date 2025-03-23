@@ -10,3 +10,6 @@ class AssignmentStrategy(ABC):
     def estimate_travel_time(self, transporter, request):
         """Return estimated time from transporter to complete a request"""
         pass
+
+    def get_optimizer(self, transporters, requests, graph):
+        return None  # Default: no optimizer

@@ -12,3 +12,6 @@ class RandomAssignmentStrategy(AssignmentStrategy):
     def estimate_travel_time(self, transporter, request):
         randomizer = RandomAssignment([], [], transporter.hospital.get_graph())
         return randomizer.estimate_travel_time(transporter, request)
+
+    def get_optimizer(self, transporters, requests, graph):
+        return RandomAssignment(transporters, requests, graph)

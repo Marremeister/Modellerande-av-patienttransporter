@@ -1,8 +1,9 @@
 import eventlet
-from eventlet.semaphore import Semaphore
+
 from ilp_optimizer_strategy import ILPOptimizerStrategy
 from model_transportation_request import TransportationRequest
 from assignment_strategy import AssignmentStrategy
+from assignment_executor import AssignmentExecutor
 
 class TransportManager:
     def __init__(self, hospital, socketio):
@@ -13,7 +14,6 @@ class TransportManager:
         self.pending_requests = []
         self.ongoing_requests = []
         self.completed_requests = []
-        self.transport_lock = Semaphore()  # Prevents simultaneous modifications
         self.simulation = None
         self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
 
@@ -33,124 +33,9 @@ class TransportManager:
         return {"status": "🚀 Assignment strategy deployed!"}
 
     def execute_assignment_plan(self):
-        """
-        Uses the current assignment strategy (ILP, Random, etc) to assign transport requests.
-        Preserves ongoing tasks, clears old queues, and populates new queues.
-        """
-        self.socketio.emit("transport_log", {"message": "🔁 Re-optimizing all transport assignments..."})
+        executor = AssignmentExecutor(self, self.socketio, self.assignment_strategy)
+        executor.run()
 
-        transporters = self.get_transporter_objects()
-        pending_requests = self.pending_requests
-        graph = self.hospital.get_graph()
-
-        self.socketio.emit("transport_log", {
-            "message": f"📦 Found {len(pending_requests)} pending requests."
-        })
-
-        resting = sum(1 for t in transporters if t.shift_manager.resting)
-        busy = sum(1 for t in transporters if t.is_busy)
-        idle = len(transporters) - resting - busy
-
-        self.socketio.emit("transport_log", {
-            "message": f"🧍 Transporter Status — Resting: {resting}, Busy: {busy}, Idle: {idle}"
-        })
-
-        assignment_plan = self.assignment_strategy.generate_assignment_plan(transporters, pending_requests, graph)
-
-        if not assignment_plan:
-            self.socketio.emit("transport_log", {
-                "message": "❌ Optimization failed or no assignments available."
-            })
-            return
-
-        optimizer = None
-        if isinstance(self.assignment_strategy, ILPOptimizerStrategy):
-            from ilp_optimizer import ILPOptimizer
-            optimizer = ILPOptimizer(transporters, pending_requests, graph)
-
-        for transporter in self.transporters:
-            assigned_requests = assignment_plan.get(transporter.name, [])
-
-            if transporter.shift_manager.resting:
-                self.socketio.emit("transport_log", {
-                    "message": f"💤 {transporter.name} is currently resting and will not be assigned new requests."
-                })
-                transporter.task_queue = assigned_requests
-                continue
-
-            if transporter.is_busy and transporter.current_task:
-                self.socketio.emit("transport_log", {
-                    "message": f"🔒 Preserving current task for {transporter.name}: "
-                               f"{transporter.current_task.origin} ➝ {transporter.current_task.destination}"
-                })
-
-                current_req = transporter.current_task
-
-                # 🧠 Avoid re-assigning the same request that's already ongoing
-                assigned_requests = [
-                    req for req in assigned_requests
-                    if not (req.origin == current_req.origin and req.destination == current_req.destination)
-                ]
-
-                # 🔁 Queue is safely updated; current task continues
-                transporter.task_queue = assigned_requests
-
-            elif assigned_requests:
-                first = assigned_requests.pop(0)
-                transporter.current_task = first
-                transporter.is_busy = True
-                first.status = "ongoing"
-                self.ongoing_requests.append(first)
-
-                self.socketio.emit("transport_log", {
-                    "message": f"🚑 Assigned {transporter.name} to: {first.origin} ➝ {first.destination}"
-                })
-
-                transporter.task_queue = assigned_requests
-                eventlet.spawn_n(self.process_transport, transporter, first)
-
-            else:
-                transporter.current_task = None
-                transporter.task_queue = []
-                transporter.is_busy = False
-                self.socketio.emit("transport_log", {
-                    "message": f"✅ {transporter.name} is idle."
-                })
-
-        # 📝 Task summary logging
-        for transporter in self.transporters:
-            self.socketio.emit("transport_log", {
-                "message": f"📝 {transporter.name} task summary:"
-            })
-
-            total_duration = 0
-
-            if transporter.current_task:
-                duration = optimizer.estimate_travel_time(transporter, transporter.current_task) if optimizer else "-"
-                total_duration += duration if isinstance(duration, (int, float)) else 0
-                self.socketio.emit("transport_log", {
-                    "message": f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination} (⏱️ ~{duration:.1f}s)" if isinstance(
-                        duration, (int,
-                                   float)) else f"   🔄 In progress: {transporter.current_task.origin} ➝ {transporter.current_task.destination}"
-                })
-
-            if transporter.task_queue:
-                for i, queued in enumerate(transporter.task_queue):
-                    duration = optimizer.estimate_travel_time(transporter, queued) if optimizer else "-"
-                    total_duration += duration if isinstance(duration, (int, float)) else 0
-                    self.socketio.emit("transport_log", {
-                        "message": f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination} (⏱️ ~{duration:.1f}s)" if isinstance(
-                            duration, (int, float)) else f"   ⏳ Queued[{i + 1}]: {queued.origin} ➝ {queued.destination}"
-                    })
-
-            if total_duration > 0:
-                self.socketio.emit("transport_log", {
-                    "message": f"⏱️ Estimated total completion time for {transporter.name}: ~{total_duration:.1f} seconds"
-                })
-            elif not transporter.current_task:
-                self.socketio.emit("transport_log", {
-                    "message": f"   💤 Idle"
-                })
 
     def add_transporter(self, transporter):
         transporter.current_location = "Transporter Lounge"
@@ -373,4 +258,8 @@ class TransportManager:
 
     def set_simulation_state(self, running: bool):
         self.simulation_running = running
+
+
+    #HELPER METHODS
+
 
