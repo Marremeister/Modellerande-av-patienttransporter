@@ -9,7 +9,6 @@ class ILPCore(ABC):
         self.graph = graph
         self.model = pulp.LpProblem("Transport_Assignment", pulp.LpMinimize)
         self.assign_vars = {}
-        self.order_vars = {}
 
     def build_and_solve(self):
         self.define_variables()
@@ -25,13 +24,6 @@ class ILPCore(ABC):
                 var_name = f"x_{t.name}_{r.id}"
                 self.assign_vars[(t.name, r.id)] = pulp.LpVariable(var_name, cat="Binary")
 
-            for i, r1 in enumerate(self.requests):
-                for j, r2 in enumerate(self.requests):
-                    if i == j:
-                        continue
-                    order_name = f"order_{t.name}_{r1.id}_{r2.id}"
-                    self.order_vars[(t.name, r1.id, r2.id)] = pulp.LpVariable(order_name, cat="Binary")
-
     def add_constraints(self):
         # Each request must be assigned to exactly one transporter
         for r in self.requests:
@@ -39,27 +31,6 @@ class ILPCore(ABC):
                 pulp.lpSum(self.assign_vars[(t.name, r.id)] for t in self.transporters) == 1,
                 f"UniqueAssignment_{r.id}"
             )
-
-        for t in self.transporters:
-            for r1 in self.requests:
-                for r2 in self.requests:
-                    if r1 == r2:
-                        continue
-
-                    order = self.order_vars[(t.name, r1.id, r2.id)]
-                    reverse_order = self.order_vars[(t.name, r2.id, r1.id)]
-                    x1 = self.assign_vars[(t.name, r1.id)]
-                    x2 = self.assign_vars[(t.name, r2.id)]
-
-                    # Prevent cycles
-                    self.model += (
-                        order + reverse_order <= 1,
-                        f"NoCycle_{t.name}_{r1.id}_{r2.id}"
-                    )
-
-                    # Only enforce ordering if both are assigned to same transporter
-                    self.model += (order <= x1, f"OrderIfAssigned1_{t.name}_{r1.id}_{r2.id}")
-                    self.model += (order <= x2, f"OrderIfAssigned2_{t.name}_{r1.id}_{r2.id}")
 
     @abstractmethod
     def define_objective(self):
@@ -74,21 +45,9 @@ class ILPCore(ABC):
                 req = next(r for r in self.requests if r.id == r_id)
                 plan[t_name].append(req)
 
+        # Sort assignments per transporter by travel time from current location
         for t in self.transporters:
-            assigned = plan[t.name]
-            sorted_requests = []
-            while assigned:
-                for candidate in assigned:
-                    # No request should come before this one
-                    if all(
-                        self.order_vars.get((t.name, other.id, candidate.id), None) is None or
-                        self.order_vars[(t.name, other.id, candidate.id)].varValue != 1
-                        for other in assigned if other != candidate
-                    ):
-                        sorted_requests.append(candidate)
-                        assigned.remove(candidate)
-                        break
-            plan[t.name] = sorted_requests
+            plan[t.name] = self.sort_requests_by_greedy_chain(t, plan[t.name])
 
         return plan
 
@@ -106,3 +65,25 @@ class ILPCore(ABC):
         )
 
         return to_origin_time + to_dest_time
+
+    def sort_requests_by_greedy_chain(self, transporter, requests):
+        from copy import deepcopy
+        remaining = deepcopy(requests)
+        ordered = []
+        current_location = transporter.current_location
+
+        while remaining:
+            # Find the request whose origin is closest to current_location
+            next_request = min(
+                remaining,
+                key=lambda r: self.estimate_point_to_point_time(current_location, r.origin)
+            )
+            ordered.append(next_request)
+            current_location = next_request.destination
+            remaining.remove(next_request)
+
+        return ordered
+
+    def estimate_point_to_point_time(self, start, end):
+        path, _ = self.transporters[0].pathfinder.dijkstra(start, end)
+        return sum(self.graph.get_edge_weight(path[i], path[i + 1]) for i in range(len(path) - 1))

@@ -52,10 +52,12 @@ class HospitalSystem:
 
     def _add_initial_data(self):
         self.add_transporter("Anna")
-        self.add_transporter("Bob")
 
+        self.create_transport_request("Pediatrics", "Cafeteria", "stretcher", False)
+        self.create_transport_request("Cafeteria", "Radiology", "stretcher", False)
         self.create_transport_request("Emergency", "ICU", "stretcher", True)
-        self.create_transport_request("Reception", "Radiology", "wheelchair", False)
+        self.create_transport_request("ICU", "Pediatrics", "stretcher", False)
+
 
     # -----------------------------
     # 🔹 Core Interface

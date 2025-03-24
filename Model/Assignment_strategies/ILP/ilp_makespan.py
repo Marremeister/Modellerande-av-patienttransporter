@@ -14,3 +14,4 @@ class ILPMakespan(ILPCore):
             self.model += (total_time <= self.makespan, f"MakespanLimit_{t.name}")
 
         self.model += self.makespan
+
