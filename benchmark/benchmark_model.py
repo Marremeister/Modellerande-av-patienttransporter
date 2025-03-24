@@ -9,8 +9,8 @@ class BenchmarkModel:
         self.results = {}
 
     def run_benchmark(self, strategy_type, runs, transporter_names, requests):
-
         durations = []
+
         for _ in range(runs):
             self._reset_system()
             self._add_transporters(transporter_names)
@@ -35,8 +35,9 @@ class BenchmarkModel:
 
             max_duration = 0
             for transporter in transporters:
-                total_time = sum(strategy.estimate_travel_time(transporter, t) for t in plan.get(transporter.name, []))
-                max_duration = max(max_duration, total_time)
+                assigned_requests = plan.get(transporter.name, [])
+                t_time = self.simulate_execution_time(transporter, assigned_requests, graph)
+                max_duration = max(max_duration, t_time)
 
             durations.append(max_duration)
 
@@ -70,6 +71,30 @@ class BenchmarkModel:
             t.name: sum(strategy.estimate_travel_time(t, req) for req in plan.get(t.name, []))
             for t in transporters
         }
+
+    def simulate_execution_time(self, transporter, requests, graph):
+        time = 0
+        current_location = transporter.current_location
+
+        for request in requests:
+            # Travel to request origin
+            path_to_origin, _ = transporter.pathfinder.dijkstra(current_location, request.origin)
+            to_origin_time = sum(
+                graph.get_edge_weight(path_to_origin[i], path_to_origin[i + 1])
+                for i in range(len(path_to_origin) - 1)
+            )
+
+            # Perform transport
+            path_to_dest, _ = transporter.pathfinder.dijkstra(request.origin, request.destination)
+            to_dest_time = sum(
+                graph.get_edge_weight(path_to_dest[i], path_to_dest[i + 1])
+                for i in range(len(path_to_dest) - 1)
+            )
+
+            time += to_origin_time + to_dest_time
+            current_location = request.destination
+
+        return time
 
     def calculate_workload_std(self, workload_dict):
         return np.std(list(workload_dict.values()))
