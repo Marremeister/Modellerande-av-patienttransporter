@@ -17,16 +17,6 @@ benchmark_requests = [
     ("Admin Office", "Cafeteria"),
     ("Radiology", "Laboratory"),
     ("Emergency", "Surgery"),
-    ("Reception", "Cardiology"),
-    ("Emergency", "ICU"),
-    ("Reception", "Radiology"),
-    ("ICU", "General Ward"),
-    ("Cardiology", "Surgery"),
-    ("Pharmacy", "Neurology"),
-    ("Pediatrics", "Orthopedics"),
-    ("Admin Office", "Cafeteria"),
-    ("Radiology", "Laboratory"),
-    ("Emergency", "Surgery"),
     ("Reception", "Cardiology")
 ]
 

@@ -148,6 +148,15 @@
         <button onclick="deployOptimization()">Solve with Optimizer</button>
 <button onclick="deployRandomness()">Solve with Randomizer</button>
 
+        <div id="sim-clock"
+     style="position: fixed; top: 10px; right: 10px;
+            background: white; padding: 8px 12px;
+            border: 1px solid #ccc; border-radius: 4px;
+            font-size: 18px; font-family: monospace; z-index: 1000;">
+  ⏱️ Simulation Time: 00:00:00
+</div>
+
+
     <!-- 🚀 End New Status Dropdown -->
 
     <label for="requestSelect">Choose a Transport Request:</label>
@@ -549,6 +558,16 @@ socket.on("transporter_status_update", function (data) {
 
 socket.on("transport_log", function (data) {
     logEvent(data.message);
+});
+
+socket.on("clock_tick", function (data) {
+  const simSeconds = Math.floor(data.simTime);
+  const hours = Math.floor(simSeconds / 3600).toString().padStart(2, '0');
+  const minutes = Math.floor((simSeconds % 3600) / 60).toString().padStart(2, '0');
+  const seconds = (simSeconds % 60).toString().padStart(2, '0');
+
+  document.getElementById("sim-clock").textContent =
+    `⏱️ Simulation Time: ${hours}:${minutes}:${seconds}`;
 });
 
 

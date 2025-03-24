@@ -1,11 +1,12 @@
 import time
 import eventlet
 
+
 class SimulationClock:
     def __init__(self, speed_factor=10):
         self.start_time_real = time.time()
         self.speed_factor = speed_factor
-        self._current_sim_time = 0  # seconds
+        self._current_sim_time = 0
         self.running = False
 
     def start(self):

@@ -1,3 +1,4 @@
+import eventlet
 from Model.hospital_model import Hospital
 from Model.model_transport_manager import TransportManager
 from Model.model_patient_transporters import PatientTransporter
@@ -6,6 +7,8 @@ from Model.Assignment_strategies.ILP.ilp_optimizer_strategy import ILPOptimizerS
 from Model.Assignment_strategies.Random.random_assignment_strategy import RandomAssignmentStrategy
 from Model.Assignment_strategies.ILP.ilp_mode import ILPMode
 from Model.model_transportation_request import TransportationRequest
+from Model.simulator_clock import SimulationClock
+
 
 
 class HospitalSystem:
@@ -15,6 +18,9 @@ class HospitalSystem:
         self.transport_manager = TransportManager(self.hospital, self.socketio)
         self.simulation = Simulation(self, socketio, interval=10)
         self.transport_manager.simulation = self.simulation
+        self.clock = SimulationClock(speed_factor=10)
+        self.clock.start()
+        self.start_clock_emitter()
 
     def initialize(self):
         self._initialize_hospital()
@@ -131,6 +137,16 @@ class HospitalSystem:
         self.log_event(f"✅ {transporter_name} started transport from {origin} to {destination}")
 
         return self._success(result)
+
+    def start_clock_emitter(self):
+        def emit_loop():
+            while True:
+                sim_time = self.clock.get_time()
+                self.socketio.emit("clock_tick", {"simTime": sim_time})
+                eventlet.sleep(0.1)  # send every real second (adjust as needed)
+
+
+        eventlet.spawn_n(emit_loop)
 
     def return_home(self, name):
         result = self.transport_manager.return_home(name)
