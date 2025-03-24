@@ -21,7 +21,7 @@ class TestTransportManager(unittest.TestCase):
         TransportationRequest.completed_requests.clear()
 
     def test_add_transporter(self):
-        transporter = PatientTransporter("Alice", self.mock_socketio)
+        transporter = PatientTransporter(self.hospital,"Alice", self.mock_socketio)
         self.tm.add_transporter(transporter)
         self.assertEqual(len(self.tm.transporters), 1)
         self.assertEqual(self.tm.transporters[0].name, "Alice")
@@ -33,7 +33,7 @@ class TestTransportManager(unittest.TestCase):
         self.assertTrue(request.urgent)
 
     def test_assign_transport_sets_transporter(self):
-        transporter = PatientTransporter("Bob", self.mock_socketio)
+        transporter = PatientTransporter(self.hospital, "Bob", self.mock_socketio)
         self.tm.add_transporter(transporter)
         request = self.tm.create_transport_request("ER", "XRay")
 
@@ -43,7 +43,7 @@ class TestTransportManager(unittest.TestCase):
         self.assertEqual(request.status, "ongoing")
 
     def test_cannot_assign_to_inactive_transporter(self):
-        transporter = PatientTransporter("InactiveTom", self.mock_socketio)
+        transporter = PatientTransporter(self.hospital, "InactiveTom", self.mock_socketio)
         transporter.set_inactive()
         self.tm.add_transporter(transporter)
 
@@ -54,7 +54,7 @@ class TestTransportManager(unittest.TestCase):
         self.assertIn("inactive", result["error"].lower())
 
     def test_completed_request_gets_tracked(self):
-        transporter = PatientTransporter("Cathy", self.mock_socketio)
+        transporter = PatientTransporter(self.hospital, "Cathy", self.mock_socketio)
         self.tm.add_transporter(transporter)
 
         request = self.tm.create_transport_request("ER", "ICU")
