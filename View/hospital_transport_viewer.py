@@ -10,7 +10,7 @@ class HospitalTransportViewer:
 
     def _register_routes(self):
         self.app.add_url_rule("/", "index", self.index)
-
+        self.app.add_url_rule("/get_all_transports", "get_all_transports", self.get_all_transports)
         self.app.add_url_rule("/add_transporter", "add_transporter", self.add_transporter, methods=["POST"])
         self.app.add_url_rule("/get_hospital_graph", "get_graph", self.get_graph)
         self.app.add_url_rule("/get_transporters", "get_transporters", self.get_transporters)
@@ -113,3 +113,19 @@ class HospitalTransportViewer:
     def use_ilp_assignment(self):
         self.system.enable_optimized_mode()
         return jsonify({"status": "✅ Switched to ILP Optimizer"})
+
+    def get_all_transports(self):
+        all_transports = self.system.transport_manager.get_all_requests()  # pending + in_progress + completed
+
+        def format_request(req):
+            return {
+                "origin": req.origin,
+                "destination": req.destination,
+                "transport_type": req.transport_type,
+                "urgent": req.urgent,
+                "assigned_transporter": req.get_transporter_name(),
+                "status": req.status  # e.g., "pending", "in_progress", "completed"
+            }
+
+        return jsonify([format_request(r) for r in all_transports])
+

@@ -343,6 +343,8 @@ function removeRequest(requestKey) {
 socket.on("transport_completed", function (data) {
     console.log("🚀 Transport completed:", data);
     loadTransportRequests();  // ✅ Only do UI refresh
+    loadTransportTable();
+
 });
 
 socket.on("transporter_status_update", function (data) {
@@ -421,6 +423,7 @@ socket.on("transport_assigned", function (data) {
 
     logList.appendChild(logEntry);
     logList.scrollTop = logList.scrollHeight; // 🔄 Auto-scroll to latest log
+    loadTransportTable();
 });
 
 
@@ -569,15 +572,20 @@ function logEvent(message, type = "info") {
 }
 
 
-
-
-
         window.onload = function () {
-            loadHospitalGraph();
-            loadTransporters();
-            loadTransportRequests();
-            loadDepartmentDropdowns();
-        };
+    loadHospitalGraph();
+    loadTransporters();
+    loadTransportRequests();
+    loadDepartmentDropdowns();
+    loadTransportTable();  // ✅ Your new table logic
+
+    // ✅ MOVE THIS INSIDE onload!
+    document.getElementById("toggleTableBtn").addEventListener("click", () => {
+        const container = document.getElementById("transportTableContainer");
+        container.style.display = container.style.display === "none" ? "block" : "none";
+    });
+};
+
 
         let simulationRunning = false;
 
@@ -594,3 +602,26 @@ document.getElementById("toggleSimulationBtn").addEventListener("click", () => {
         document.getElementById("toggleSimulationBtn").innerText = simulationRunning ? "Stop Simulation" : "Start Simulation";
     });
 });
+
+function loadTransportTable() {
+    fetch("/get_all_transports")
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.querySelector("#transportTable tbody");
+            tbody.innerHTML = "";
+
+            data.forEach(req => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${req.origin}</td>
+                    <td>${req.destination}</td>
+                    <td>${req.transport_type}</td>
+                    <td>${req.urgent ? "Yes" : "No"}</td>
+                    <td>${req.assigned_transporter}</td>
+                    <td>${req.status}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        });
+}
+

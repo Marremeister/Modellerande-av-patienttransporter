@@ -118,3 +118,32 @@ svg {
     font-family: monospace;
     z-index: 1000;
 }
+
+.transport-table {
+    margin-top: 30px;
+    width: 90%;
+    max-width: 1000px;
+}
+
+.transport-table table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: #fff;
+}
+
+.transport-table th, .transport-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+
+.transport-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+#transportTableContainer {
+    transition: max-height 0.3s ease;
+    overflow: hidden;
+}

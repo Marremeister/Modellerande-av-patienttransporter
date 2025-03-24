@@ -16,6 +16,13 @@ class TransportationRequest:
         self.status = "pending"
         self.request_time = request_time or time.time()
         self.has_started = False  # ✅ Track if the request has been started
+        self.assigned_transporter = None
+
+    def assign_transporter_to_request(self, transporter):
+        self.assigned_transporter = transporter
+
+    def get_transporter_name(self):
+        return self.assigned_transporter.name if self.assigned_transporter else "-"
 
     def mark_as_ongoing(self):
         self.status = "ongoing"

@@ -127,6 +127,7 @@ class TransportManager:
 
         # Move request to ongoing
         request_obj.mark_as_ongoing()
+        request_obj.assign_transporter_to_request(transporter)
 
         print(f"🚑 {transporter.name} assigned transport: {request_obj.origin} ➝ {request_obj.destination}")
 
@@ -265,4 +266,12 @@ class TransportManager:
             if transporter.task_queue:
                 return True
         return False
+
+    def get_all_requests(self):
+        return (
+                TransportationRequest.pending_requests +
+                TransportationRequest.ongoing_requests +
+                TransportationRequest.completed_requests
+        )
+
 
