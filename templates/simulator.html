@@ -2,35 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Simulator</title>
+  <title>Hospital Transport Simulator</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/simulator.css') }}">
 </head>
 <body>
-  <h1>🧪 Simulation Control Panel</h1>
-
-  <div class="simulator-controls">
-    <label for="numTransporters">Number of Transporters:</label>
-    <input type="number" id="numTransporters" min="1" value="3">
-
-    <label for="requestInterval">Request Interval (sec):</label>
-    <input type="number" id="requestInterval" min="1" value="5">
-
-    <label for="strategySelect">Assignment Strategy:</label>
-    <select id="strategySelect">
-      <!-- dynamically populated -->
-    </select>
-
-    <button onclick="applySimulatorConfig()">✅ Apply Config</button>
-    <button onclick="startSimulation()">▶️ Start Simulation</button>
-    <button onclick="stopSimulation()">⏹️ Stop Simulation</button>
+  <div id="sim-header">
+    <h1>🏥 Hospital Transport Simulator</h1>
+    <div id="sim-clock">⏱️ 00:00:00</div>
+    <a href="/" class="back-button">← Back to Dashboard</a>
   </div>
 
-  <div id="logPanel">
-    <h3>📋 Simulation Log</h3>
-    <ul id="logList"></ul>
+  <div id="debugControls" style="position: fixed; top: 70px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 5px; display: none;">
+    <button onclick="debugTransporters()">Debug Transporters</button>
+    <button onclick="refreshAllTransporters()">Refresh All Transporters</button>
   </div>
 
-  <script type="module" src="/static/js/simulator.js"></script>
+  <div class="sim-container">
+    <div class="sim-sidebar">
+      <div class="panel">
+        <h3>⚙️ Simulation Settings</h3>
+        <div class="form-group">
+          <label for="numTransporters">Number of Transporters:</label>
+          <input type="number" id="numTransporters" min="1" max="10" value="3">
+        </div>
+
+        <div class="form-group">
+          <label for="requestInterval">Request Interval (sec):</label>
+          <input type="number" id="requestInterval" min="1" max="60" value="10">
+        </div>
+
+        <div class="form-group">
+          <label for="strategySelect">Assignment Strategy:</label>
+          <select id="strategySelect">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <button id="applyConfigBtn" class="btn primary" onclick="applySimulatorConfig()">Apply Config</button>
+      </div>
+
+      <div class="panel">
+        <h3>▶️ Simulation Controls</h3>
+        <div class="btn-group">
+          <button id="startSimulationBtn" class="btn success" onclick="startSimulation()">Start Simulation</button>
+          <button id="stopSimulationBtn" class="btn danger" onclick="stopSimulation()">Stop Simulation</button>
+        </div>
+        <div class="sim-stats">
+          <div class="stat-box">
+            <span class="stat-label">Active Transporters:</span>
+            <span id="activeTransporters" class="stat-value">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Pending Requests:</span>
+            <span id="pendingRequests" class="stat-value">0</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Completed:</span>
+            <span id="completedRequests" class="stat-value">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>📋 Simulation Log</h3>
+        <div id="logPanel" class="sim-log">
+          <ul id="logList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="sim-main">
+      <div class="hospital-view">
+        <svg id="hospitalMap" viewBox="-100 -100 1400 1000"></svg>
+      </div>
+
+      <div class="transport-table-container">
+        <h3>
+          <span>📊 Transport Status</span>
+          <button id="refreshTableBtn" class="btn small" onclick="loadTransportTable()">🔄 Refresh</button>
+        </h3>
+        <table id="transportTable">
+          <thead>
+            <tr>
+              <th>Origin</th>
+              <th>Destination</th>
+              <th>Type</th>
+              <th>Urgent</th>
+              <th>Transporter</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/simulator.js"></script>
 </body>
 </html>

@@ -147,3 +147,46 @@ svg {
     transition: max-height 0.3s ease;
     overflow: hidden;
 }
+
+svg {
+  border: 1px solid #aaa;
+  background-color: #f9f9f9;
+  margin-top: 20px;
+}
+
+.transporter {
+  stroke: black;
+  stroke-width: 2px;
+}
+
+.node {
+  fill: lightblue;
+  stroke: black;
+}
+
+.link {
+  stroke: #aaa;
+}
+
+.edge-label {
+  font-size: 10px;
+  font-weight: bold;
+}
+
+#sim-clock {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+#logPanel {
+  margin-top: 20px;
+}
+
+#logList {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background: #f2f2f2;
+}

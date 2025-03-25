@@ -1,0 +1,311 @@
+/* Simulator Specific Styles */
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    background: #f0f4f8;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#sim-header {
+    background: #2c3e50;
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#sim-header h1 {
+    margin: 0;
+    color: white;
+    font-size: 24px;
+}
+
+#sim-clock {
+    background: rgba(255, 255, 255, 0.1);
+    position: static;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: none;
+    font-size: 16px;
+    font-family: monospace;
+    z-index: auto;
+}
+
+.back-button {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    text-decoration: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.back-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.sim-container {
+    display: flex;
+    height: calc(100vh - 55px);
+    overflow: hidden;
+}
+
+.sim-sidebar {
+    width: 350px;
+    background: white;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-right: 1px solid #e0e0e0;
+}
+
+.sim-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.panel h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #2c3e50;
+    font-size: 18px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+input, select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    background: #fafafa;
+}
+
+.btn {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.2s;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+.btn.primary {
+    background: #3498db;
+}
+
+.btn.success {
+    background: #2ecc71;
+}
+
+.btn.danger {
+    background: #e74c3c;
+}
+
+.btn.small {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.btn-group .btn {
+    flex: 1;
+}
+
+.hospital-view {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 60%;
+    margin-bottom: 15px;
+    padding: 10px;
+}
+
+#hospitalMap {
+    width: 100%;
+    height: 100%;
+    background: #f9f9f9;
+}
+
+.transport-table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    padding: 15px;
+    flex: 1;
+    overflow: auto;
+}
+
+.transport-table-container h3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0;
+}
+
+#transportTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#transportTable th, #transportTable td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+#transportTable th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+#transportTable tr:hover {
+    background: #f9f9f9;
+}
+
+.sim-log {
+    height: 300px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+}
+
+#logList {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+#logList li {
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.sim-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.stat-box {
+    background: #f5f7f9;
+    border-radius: 4px;
+    padding: 8px 12px;
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    border: 1px solid #eaeaea;
+}
+
+.stat-label {
+    display: block;
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.node {
+    fill: #90CAF9;
+    stroke: #2c3e50;
+    stroke-width: 2px;
+    transition: fill 0.3s;
+}
+
+.node:hover {
+    fill: #64B5F6;
+}
+
+.node-label {
+    font-size: 12px;
+    fill: #333;
+    pointer-events: none;
+}
+
+.link {
+    stroke: #bbb;
+    stroke-width: 2px;
+}
+
+.link-label {
+    font-size: 11px;
+    fill: #777;
+    text-anchor: middle;
+}
+
+.transporter {
+    fill: #E57373;
+    stroke: #111;
+    stroke-width: 1.5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.transporter:hover {
+    fill: #EF5350;
+    stroke-width: 2px;
+}
+
+/* Status colors */
+.status-pending {
+    color: #f39c12;
+}
+
+.status-ongoing {
+    color: #3498db;
+}
+
+.status-completed {
+    color: #27ae60;
+}
