@@ -71,7 +71,7 @@ function loadHospitalGraph() {
             let labelLayer = svg.append("g").attr("class", "label-layer");
             let controlLayer = svg.append("g").attr("class", "control-layer");
 
-            // Add a simulation clock to the map
+            // Add a simulation clock to the map with improved styling
             controlLayer.append("rect")
                 .attr("x", 20)
                 .attr("y", 20)
@@ -141,7 +141,7 @@ function loadHospitalGraph() {
         });
 }
 
-// Apply simulator configuration
+// Apply simulator configuration - MODIFIED TO NOT START SIMULATION AUTOMATICALLY
 function applySimulatorConfig() {
     const numTransporters = parseInt(document.getElementById("numTransporters").value);
     const requestInterval = parseInt(document.getElementById("requestInterval").value);
@@ -164,8 +164,20 @@ function applySimulatorConfig() {
     })
     .then(data => {
         logEvent(data.status || "✅ Configuration updated");
+
         // Refresh transporter visual display
         loadTransporters();
+
+        // Add a nice visual effect to show config was applied
+        const applyBtn = document.getElementById("applyConfigBtn");
+        applyBtn.classList.add("btn-flash");
+        setTimeout(() => applyBtn.classList.remove("btn-flash"), 500);
+
+        // Update current config display if element exists
+        const configDisplay = document.getElementById("currentConfig");
+        if (configDisplay) {
+            configDisplay.textContent = `${numTransporters} transporters, ${requestInterval}s interval, ${strategy}`;
+        }
     })
     .catch(err => logEvent("❌ Failed to update config: " + err, "error"));
 }
@@ -183,6 +195,13 @@ function startSimulation() {
         logEvent("▶️ Simulation started");
         document.getElementById("stopSimulationBtn").style.display = "inline-block";
         document.getElementById("startSimulationBtn").style.display = "none";
+
+        // Update simulation status if element exists
+        const statusEl = document.getElementById("simulationStatus");
+        if (statusEl) {
+            statusEl.textContent = "Running";
+            statusEl.className = "status-running";
+        }
     });
 }
 
@@ -199,6 +218,13 @@ function stopSimulation() {
         logEvent("🛑 Simulation stopped");
         document.getElementById("stopSimulationBtn").style.display = "none";
         document.getElementById("startSimulationBtn").style.display = "inline-block";
+
+        // Update simulation status if element exists
+        const statusEl = document.getElementById("simulationStatus");
+        if (statusEl) {
+            statusEl.textContent = "Stopped";
+            statusEl.className = "status-stopped";
+        }
     });
 }
 
@@ -220,15 +246,16 @@ function loadTransporters() {
             // Create visuals for each transporter that isn't currently animating
             data.forEach(trans => {
                 if (!transporterNodes[trans.name] || transporterNodes[trans.name].attr("data-animating") !== "true") {
-                    let color = trans.status === "active" ? "red" : "gray";
+                    // Use brighter colors for better visibility
+                    let color = trans.status === "active" ? "#FF5252" : "#A9A9A9";
                     createTransporterVisual(trans.name, trans.current_location, color);
                 }
             });
         });
 }
 
-// Create visual representation of a transporter - simplified version
-function createTransporterVisual(name, location, color = "red") {
+// Create visual representation of a transporter - IMPROVED FOR BETTER VISIBILITY
+function createTransporterVisual(name, location, color = "#FF5252") {
     if (!location) return;
 
     // Try to find the node
@@ -244,9 +271,11 @@ function createTransporterVisual(name, location, color = "red") {
         return;
     }
 
-    // If transporter exists but not animating, remove it
+    // If transporter exists but not animating, remove it and its label
     if (transporterNodes[name]) {
         transporterNodes[name].remove();
+        // Also remove the label if it exists
+        d3.select(`[data-transporter-label='${name}']`).remove();
     }
 
     // Get the position from the node
@@ -255,24 +284,29 @@ function createTransporterVisual(name, location, color = "red") {
 
     console.log(`🔹 Creating transporter ${name} at ${location} (${x}, ${y})`);
 
-    // Create a simple circle for the transporter (like in main.js)
+    // Create a larger circle for the transporter
     let transporterCircle = svg.select("#transporterLayer").append("circle")
-        .attr("class", "transporter")
-        .attr("r", 10)
-        .attr("cx", x)
-        .attr("cy", y)
-        .attr("fill", color)
-        .attr("data-transporter", name)
-        .attr("data-animating", "false");
+    .attr("class", "transporter")
+    .attr("r", 15) // Increased from 10 to 15
+    .attr("cx", x)
+    .attr("cy", y)
+    .attr("fill", "#FF5252") // Use a brighter red color
+    .attr("stroke", "white") // Add white border
+    .attr("stroke-width", 2)
+    .attr("data-transporter", name)
+    .attr("data-animating", "false");
 
-    // Add a separate label element
+    // Add a separate label element with improved visibility
     svg.select("#transporterLayer").append("text")
         .attr("class", "transporter-label")
         .attr("x", x)
-        .attr("y", y - 15)
+        .attr("y", y - 20) // Moved slightly further from the circle
         .attr("text-anchor", "middle")
-        .attr("font-size", "12px")
+        .attr("font-size", "14px") // Larger font
+        .attr("font-weight", "bold") // Bold text
         .attr("fill", "#333")
+        .attr("stroke", "white") // Text outline for readability
+        .attr("stroke-width", "0.5")
         .attr("data-transporter-label", name)
         .text(name.replace("Sim_Transporter_", "T"));
 
@@ -280,26 +314,16 @@ function createTransporterVisual(name, location, color = "red") {
     transporterNodes[name] = transporterCircle;
 }
 
-// Update transporter path animation - more like main.js
+// Update transporter path animation - with improved visibility
 function updateTransporterPath(name, path, durations) {
     if (!path || path.length < 2) {
         console.warn(`⚠️ Invalid path for ${name}:`, path);
         return;
     }
 
-    // If transporter doesn't exist, create it
-    if (!transporterNodes[name]) {
-        console.log(`🔄 Creating missing transporter: ${name} at ${path[0]}`);
-        createTransporterVisual(name, path[0], "red");
-        transporterNodes[name].attr("data-current-location", path[0]);
-
-        // Short delay before starting animation
-        setTimeout(() => updateTransporterPath(name, path, durations), 100);
-        return;
-    }
-
-    // Find the transporter circle
+    // Get the transporter circle - MAKE SURE THIS IS ACTUALLY THE RIGHT ELEMENT
     let transporterCircle = transporterNodes[name];
+    console.log("Found transporter:", transporterCircle.node());
 
     // Find the label for this transporter
     let transporterLabel = d3.select(`[data-transporter-label='${name}']`);
@@ -309,7 +333,17 @@ function updateTransporterPath(name, path, durations) {
         return;
     }
 
-    console.log(`🚶 Starting path animation for ${name}: ${path.join(" → ")}`);
+    // Debug output to check coordinates
+    console.log(`Starting coordinates for ${name}:`, {
+        circle: {
+            cx: transporterCircle.attr("cx"),
+            cy: transporterCircle.attr("cy")
+        },
+        label: transporterLabel.node() ? {
+            x: transporterLabel.attr("x"),
+            y: transporterLabel.attr("y")
+        } : null
+    });
 
     // Mark as currently animating
     transporterCircle.attr("data-animating", "true");
@@ -334,28 +368,33 @@ function updateTransporterPath(name, path, durations) {
         let y = parseFloat(nextNode.getAttribute("cy"));
         let duration = durations?.[step - 1] || 1000;
 
-        // Animate the circle
+        console.log(`Moving ${name} to (${x}, ${y})`);
+
+        // MAKE SURE THE CIRCLE MOVES
         transporterCircle
             .transition()
             .duration(duration)
             .attr("cx", x)
             .attr("cy", y);
 
-        // Animate the label if it exists
+        // MAKE SURE THE LABEL MOVES TOO
         if (transporterLabel.node()) {
             transporterLabel
                 .transition()
                 .duration(duration)
                 .attr("x", x)
-                .attr("y", y - 15);
+                .attr("y", y - 20);
         }
 
-        // When circle completes (which should be at same time as label)
+        // When animation completes, move to next step
         transporterCircle
             .transition()
             .duration(duration)
             .on("end", () => {
-                console.log(`✅ '${name}' moved to '${path[step]}' in ${duration}ms`);
+                console.log(`Moved ${name} to ${path[step]}, coordinates now:`, {
+                    cx: transporterCircle.attr("cx"),
+                    cy: transporterCircle.attr("cy")
+                });
                 transporterCircle.attr("data-current-location", path[step]);
                 step++;
                 moveStep();
@@ -477,7 +516,7 @@ socket.on("transporter_update", function(data) {
             // Try to recover by recreating the transporter
             if (data.path && data.path.length > 0) {
                 setTimeout(() => {
-                    createTransporterVisual(data.name, data.path[0], "red");
+                    createTransporterVisual(data.name, data.path[0], "#FF5252");
                 }, 500);
             }
         }
@@ -493,7 +532,7 @@ socket.on("new_transporter", function(data) {
             createTransporterVisual(
                 data.name,
                 data.current_location,
-                data.status === "active" ? "red" : "gray"
+                data.status === "active" ? "#FF5252" : "#A9A9A9"
             );
         }
     }

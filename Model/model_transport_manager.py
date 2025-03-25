@@ -5,6 +5,7 @@ from Model.assignment_executor import AssignmentExecutor
 from Model.model_transportation_request import TransportationRequest
 from Model.transport_assignment_handler import TransportAssignmentHandler
 from Model.Assignment_strategies.strategy_registry import STRATEGY_REGISTRY
+from Model.simulation_state import SimulationState
 
 
 class TransportManager:
@@ -16,6 +17,29 @@ class TransportManager:
         self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
         self.assignment_handler = TransportAssignmentHandler(socketio, self)
         self.simulation_running = False
+        self.state = SimulationState.READY
+
+    def set_state(self, new_state, emit_notification=True):
+        """Change the system state with proper notification"""
+        old_state = self.state
+        self.state = new_state
+
+        if emit_notification:
+            self.socketio.emit("system_state_change", {
+                "previous": old_state.value,
+                "current": new_state.value
+            })
+        return old_state
+
+    def set_simulation_state(self, running: bool):
+        """Central method to update simulation state"""
+        self.simulation_running = running
+        if running:
+            self.set_state(SimulationState.RUNNING)
+        else:
+            self.set_state(SimulationState.READY)
+
+        # This method now becomes a central place for all simulation state changes
 
     def set_strategy_by_name(self, name: str):
         factory = STRATEGY_REGISTRY.get(name)
@@ -52,7 +76,6 @@ class TransportManager:
         return any(r.is_reassignable() for r in TransportationRequest.pending_requests) or any(
             r.is_reassignable() for t in self.transporters for r in t.task_queue)
 
-
     def add_transporter(self, transporter):
         transporter.current_location = "Transporter Lounge"
         transporter.task_queue = []
@@ -62,12 +85,12 @@ class TransportManager:
         self.transporters.append(transporter)
         self.socketio.emit("new_transporter", transporter.to_dict())
 
-
         self.socketio.emit("transport_log", {
             "message": f"🆕 {transporter.name} added at {transporter.current_location} and is ready for assignments."
         })
 
-        if self.has_assignable_work():
+        # Only auto-deploy if in RUNNING state and we have assignable work
+        if self.state == SimulationState.RUNNING and self.has_assignable_work():
             self.socketio.emit("transport_log", {
                 "message": f"🔁 Re-optimizing all assignments after adding {transporter.name}"
             })

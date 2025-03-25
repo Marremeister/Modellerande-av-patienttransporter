@@ -7,6 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/simulator.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div id="sim-header">
@@ -15,15 +16,10 @@
     <a href="/" class="back-button">← Back to Dashboard</a>
   </div>
 
-  <div id="debugControls" style="position: fixed; top: 70px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 5px; display: none;">
-    <button onclick="debugTransporters()">Debug Transporters</button>
-    <button onclick="refreshAllTransporters()">Refresh All Transporters</button>
-  </div>
-
   <div class="sim-container">
     <div class="sim-sidebar">
       <div class="panel">
-        <h3>⚙️ Simulation Settings</h3>
+        <h3><i class="fas fa-cogs"></i> Simulation Settings</h3>
         <div class="form-group">
           <label for="numTransporters">Number of Transporters:</label>
           <input type="number" id="numTransporters" min="1" max="10" value="3">
@@ -41,34 +37,49 @@
           </select>
         </div>
 
-        <button id="applyConfigBtn" class="btn primary" onclick="applySimulatorConfig()">Apply Config</button>
+        <button id="applyConfigBtn" class="btn primary" onclick="applySimulatorConfig()">
+          <i class="fas fa-check"></i> Apply Config
+        </button>
+
+        <div id="currentConfig" class="config-indicator">
+          Configuration not yet applied
+        </div>
       </div>
 
       <div class="panel">
-        <h3>▶️ Simulation Controls</h3>
-        <div class="btn-group">
-          <button id="startSimulationBtn" class="btn success" onclick="startSimulation()">Start Simulation</button>
-          <button id="stopSimulationBtn" class="btn danger" onclick="stopSimulation()">Stop Simulation</button>
-        </div>
+        <h3><i class="fas fa-play-circle"></i> Simulation Controls</h3>
         <div class="sim-stats">
           <div class="stat-box">
-            <span class="stat-label">Active Transporters:</span>
+            <span class="stat-label">Transporters</span>
             <span id="activeTransporters" class="stat-value">0</span>
           </div>
           <div class="stat-box">
-            <span class="stat-label">Pending Requests:</span>
+            <span class="stat-label">Pending</span>
             <span id="pendingRequests" class="stat-value">0</span>
           </div>
           <div class="stat-box">
-            <span class="stat-label">Completed:</span>
+            <span class="stat-label">Completed</span>
             <span id="completedRequests" class="stat-value">0</span>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label>Simulation Status: <span id="simulationStatus" class="status-stopped">Stopped</span></label>
+        </div>
+
+        <div class="btn-group">
+          <button id="startSimulationBtn" class="btn success" onclick="startSimulation()">
+            <i class="fas fa-play"></i> Start Simulation
+          </button>
+          <button id="stopSimulationBtn" class="btn danger" onclick="stopSimulation()">
+            <i class="fas fa-stop"></i> Stop Simulation
+          </button>
         </div>
       </div>
 
       <div class="panel">
-        <h3>📋 Simulation Log</h3>
-        <div id="logPanel" class="sim-log">
+        <h3><i class="fas fa-clipboard-list"></i> Simulation Log</h3>
+        <div class="sim-log">
           <ul id="logList"></ul>
         </div>
       </div>
@@ -81,8 +92,10 @@
 
       <div class="transport-table-container">
         <h3>
-          <span>📊 Transport Status</span>
-          <button id="refreshTableBtn" class="btn small" onclick="loadTransportTable()">🔄 Refresh</button>
+          <span><i class="fas fa-table"></i> Transport Status</span>
+          <button id="refreshTableBtn" class="btn small" onclick="loadTransportTable()">
+            <i class="fas fa-sync-alt"></i> Refresh
+          </button>
         </h3>
         <table id="transportTable">
           <thead>

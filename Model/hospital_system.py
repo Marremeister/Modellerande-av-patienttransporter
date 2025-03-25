@@ -75,11 +75,16 @@ class HospitalSystem:
         self.simulation.stop()
 
     def toggle_simulation(self, running: bool):
+        """Central toggle for simulations"""
+        # Update the manager state
+        self.transport_manager.set_simulation_state(running)
+
+        # Start/stop the simulation engine
         if running:
-            self.simulation.start()
+            self.simulation.start()  # Will also set state
             return {"status": "Simulation started"}, 200
         else:
-            self.simulation.stop()
+            self.simulation.stop()  # Will also set state
             return {"status": "Simulation stopped"}, 200
 
     def get_graph(self):

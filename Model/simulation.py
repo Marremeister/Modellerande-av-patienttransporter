@@ -1,5 +1,6 @@
 import random
 import eventlet
+from Model.simulation_state import SimulationState
 
 class Simulation:
     def __init__(self, system, socketio, interval=10):
@@ -11,11 +12,15 @@ class Simulation:
     def start(self):
         """Starts the simulation in the background."""
         self.running = True
+        # Set state to RUNNING here
+        self.system.transport_manager.set_state(SimulationState.RUNNING)
         eventlet.spawn_n(self._run_loop)
 
     def stop(self):
         """Stops the simulation loop."""
         self.running = False
+        # Set state to READY here
+        self.system.transport_manager.set_state(SimulationState.READY)
 
     def is_running(self):
         return self.running

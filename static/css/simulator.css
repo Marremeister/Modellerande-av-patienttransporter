@@ -1,4 +1,4 @@
-/* Simulator Specific Styles */
+/* Enhanced Simulator Specific Styles */
 body {
     margin: 0;
     padding: 0;
@@ -7,16 +7,17 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 #sim-header {
-    background: #2c3e50;
+    background: linear-gradient(90deg, #2c3e50, #3498db);
     color: white;
     padding: 10px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 #sim-header h1 {
@@ -26,13 +27,14 @@ body {
 }
 
 #sim-clock {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
     position: static;
     padding: 8px 12px;
     border-radius: 4px;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     font-size: 16px;
     font-family: monospace;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     z-index: auto;
 }
 
@@ -42,6 +44,7 @@ body {
     text-decoration: none;
     padding: 8px 15px;
     border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     transition: background 0.3s;
 }
 
@@ -64,6 +67,7 @@ body {
     flex-direction: column;
     gap: 15px;
     border-right: 1px solid #e0e0e0;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
 }
 
 .sim-main {
@@ -72,14 +76,16 @@ body {
     flex-direction: column;
     padding: 15px;
     overflow-y: auto;
+    background: #f9f9fd;
 }
 
 .panel {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     padding: 15px;
     margin-bottom: 15px;
+    border: 1px solid #eaeaea;
 }
 
 .panel h3 {
@@ -89,6 +95,12 @@ body {
     font-size: 18px;
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.panel h3::before {
+    margin-right: 8px;
 }
 
 .form-group {
@@ -104,11 +116,18 @@ body {
 
 input, select {
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 16px;
     background: #fafafa;
+    transition: border 0.3s, box-shadow 0.3s;
+}
+
+input:focus, select:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    outline: none;
 }
 
 .btn {
@@ -118,13 +137,21 @@ input, select {
     color: white;
     cursor: pointer;
     font-size: 15px;
-    transition: all 0.2s;
+    transition: all 0.3s;
     display: inline-block;
     text-align: center;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .btn:hover {
-    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .btn.primary {
@@ -157,25 +184,28 @@ input, select {
 .hospital-view {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     height: 60%;
     margin-bottom: 15px;
-    padding: 10px;
+    padding: 15px;
+    border: 1px solid #eaeaea;
 }
 
 #hospitalMap {
     width: 100%;
     height: 100%;
     background: #f9f9f9;
+    border-radius: 4px;
 }
 
 .transport-table-container {
     background: white;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     padding: 15px;
     flex: 1;
     overflow: auto;
+    border: 1px solid #eaeaea;
 }
 
 .transport-table-container h3 {
@@ -191,7 +221,7 @@ input, select {
 }
 
 #transportTable th, #transportTable td {
-    padding: 10px;
+    padding: 12px;
     text-align: left;
     border-bottom: 1px solid #eee;
 }
@@ -206,12 +236,13 @@ input, select {
 }
 
 .sim-log {
-    height: 300px;
+    height: 260px;
     overflow-y: auto;
     background: #f9f9f9;
     padding: 10px;
     border-radius: 4px;
     border: 1px solid #eee;
+    font-family: monospace;
 }
 
 #logList {
@@ -221,9 +252,10 @@ input, select {
 }
 
 #logList li {
-    padding: 5px 0;
+    padding: 6px 0;
     border-bottom: 1px solid #eee;
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .sim-stats {
@@ -235,27 +267,45 @@ input, select {
 
 .stat-box {
     background: #f5f7f9;
-    border-radius: 4px;
-    padding: 8px 12px;
+    border-radius: 6px;
+    padding: 12px;
     flex: 1;
     min-width: 80px;
     text-align: center;
     border: 1px solid #eaeaea;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
 }
 
 .stat-label {
     display: block;
     font-size: 13px;
     color: #777;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 
 .stat-value {
-    font-size: 18px;
+    font-size: 24px;
     font-weight: bold;
     color: #2c3e50;
 }
 
+.config-indicator {
+    font-size: 13px;
+    color: #666;
+    background: #f0f0f0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin: 8px 0;
+    border-left: 3px solid #3498db;
+}
+
+/* Node and transport styling */
 .node {
     fill: #90CAF9;
     stroke: #2c3e50;
@@ -269,6 +319,7 @@ input, select {
 
 .node-label {
     font-size: 12px;
+    font-weight: bold;
     fill: #333;
     pointer-events: none;
 }
@@ -284,28 +335,70 @@ input, select {
     text-anchor: middle;
 }
 
+/* Improved transporter styling */
 .transporter {
-    fill: #E57373;
-    stroke: #111;
-    stroke-width: 1.5px;
     cursor: pointer;
     transition: all 0.3s;
+    filter: drop-shadow(0 0 3px rgba(0,0,0,0.3));
 }
 
 .transporter:hover {
-    fill: #EF5350;
-    stroke-width: 2px;
+    filter: drop-shadow(0 0 5px rgba(0,0,0,0.5));
+}
+
+.transporter-label {
+    pointer-events: none;
+    text-shadow: 0 0 3px white;
 }
 
 /* Status colors */
 .status-pending {
     color: #f39c12;
+    font-weight: bold;
 }
 
 .status-ongoing {
     color: #3498db;
+    font-weight: bold;
 }
 
 .status-completed {
     color: #27ae60;
+    font-weight: bold;
+}
+
+.status-running {
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+.status-stopped {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Button flash effect for Apply Config */
+@keyframes btn-flash {
+    0% { background-color: #3498db; }
+    50% { background-color: #2ecc71; }
+    100% { background-color: #3498db; }
+}
+
+.btn-flash {
+    animation: btn-flash 0.5s;
+}
+
+/* Force transporter appearance */
+circle.transporter {
+    r: 15px !important;
+    fill: #FF5252 !important;
+    stroke: white !important;
+    stroke-width: 2px !important;
+}
+
+text.transporter-label {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    stroke: white !important;
+    stroke-width: 0.5px !important;
 }
