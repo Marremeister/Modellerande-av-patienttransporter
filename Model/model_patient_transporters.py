@@ -78,3 +78,12 @@ class PatientTransporter:
             eventlet.sleep(1)  # Simulating time passing
             self.workload = max(0, self.workload - amount)
             self.socketio.emit("workload_update", {"name": self.name, "workload": self.workload})
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "status": self.status,
+            "current_location": self.current_location,
+            "workload": self.workload
+        }
+

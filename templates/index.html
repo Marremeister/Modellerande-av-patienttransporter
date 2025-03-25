@@ -18,6 +18,8 @@
     <h1>Hospital Transport System</h1>
 
     <div class="controls">
+        <button onclick="location.href='/simulator'">🚀 Launch Simulator</button>
+
         <label for="transporterSelect">Choose a Transporter:</label>
         <select id="transporterSelect"></select>
 
@@ -102,6 +104,8 @@
     <svg viewBox="-100 -100 1400 1000"></svg>
 
     <!-- Load external JavaScript -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="/static/js/main.js"></script>
+
+
 </body>
 </html>

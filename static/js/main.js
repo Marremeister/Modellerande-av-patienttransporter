@@ -1,3 +1,4 @@
+
 var svg = d3.select("svg"), width = 1400, height = 1000;
         var transporters = {}, transportRequests = {}, transporterNodes = {};
         var socket = io("http://127.0.0.1:5001");

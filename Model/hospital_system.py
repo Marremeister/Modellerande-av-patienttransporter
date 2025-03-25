@@ -199,6 +199,13 @@ class HospitalSystem:
     def use_ilp_makespan(self):
         self.enable_optimized_mode(ILPMode.MAKESPAN)
 
+    def reset_transporters(self, count):
+        self.transport_manager.transporters.clear()
+
+        for i in range(count):
+            name = f"Sim_Transporter_{i + 1}"
+            self.add_transporter(name)
+
     # -----------------------------
     # 🔹 Helpers
     # -----------------------------

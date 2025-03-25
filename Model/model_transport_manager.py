@@ -4,6 +4,7 @@ from Model.Assignment_strategies.assignment_strategy import AssignmentStrategy
 from Model.assignment_executor import AssignmentExecutor
 from Model.model_transportation_request import TransportationRequest
 from Model.transport_assignment_handler import TransportAssignmentHandler
+from Model.Assignment_strategies.strategy_registry import STRATEGY_REGISTRY
 
 
 class TransportManager:
@@ -13,13 +14,24 @@ class TransportManager:
         self.transporters = []
         self.simulation = None
         self.assignment_strategy: AssignmentStrategy = ILPOptimizerStrategy()
-        self.assignment_handler = TransportAssignmentHandler(socketio, self)  # ✅ Centralized handler
+        self.assignment_handler = TransportAssignmentHandler(socketio, self)
+        self.simulation_running = False
 
-    def set_strategy(self, strategy: AssignmentStrategy):
+    def set_strategy_by_name(self, name: str):
+        factory = STRATEGY_REGISTRY.get(name)
+        if not factory:
+            return {"error": f"❌ Unknown strategy: {name}"}, 400
+        self._set_strategy(factory())
+        return {"status": f"✅ Strategy set to: {name}"}
+
+    def _set_strategy(self, strategy: AssignmentStrategy):
         self.assignment_strategy = strategy
         self.socketio.emit("transport_log", {
             "message": f"⚙️ Assignment strategy switched to: {strategy.__class__.__name__}"
         })
+
+    def get_available_strategy_names(self):
+        return list(STRATEGY_REGISTRY.keys())
 
     def deploy_strategy_assignment(self):
         eventlet.spawn_n(self.execute_assignment_plan)
@@ -40,6 +52,7 @@ class TransportManager:
         return any(r.is_reassignable() for r in TransportationRequest.pending_requests) or any(
             r.is_reassignable() for t in self.transporters for r in t.task_queue)
 
+
     def add_transporter(self, transporter):
         transporter.current_location = "Transporter Lounge"
         transporter.task_queue = []
@@ -47,11 +60,8 @@ class TransportManager:
         transporter.is_busy = False
 
         self.transporters.append(transporter)
-        self.socketio.emit("new_transporter", {
-            "name": transporter.name,
-            "status": transporter.status,
-            "current_location": transporter.current_location
-        })
+        self.socketio.emit("new_transporter", transporter.to_dict())
+
 
         self.socketio.emit("transport_log", {
             "message": f"🆕 {transporter.name} added at {transporter.current_location} and is ready for assignments."
@@ -89,7 +99,6 @@ class TransportManager:
         if request_obj not in TransportationRequest.pending_requests:
             return {"error": "Transport request not found or already assigned"}, 400
 
-        # ✅ Delegate to centralized handler
         self.assignment_handler.assign(transporter, request_obj)
         return {
             "status": f"✅ {transporter.name} is transporting {request_obj.transport_type} from {request_obj.origin} to {request_obj.destination}."
@@ -176,3 +185,5 @@ class TransportManager:
             TransportationRequest.ongoing_requests +
             TransportationRequest.completed_requests
         )
+
+

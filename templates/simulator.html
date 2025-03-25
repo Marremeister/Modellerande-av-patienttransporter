@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <h1>🧪 Simulation Control Panel</h1>
+
+  <div class="simulator-controls">
+    <label for="numTransporters">Number of Transporters:</label>
+    <input type="number" id="numTransporters" min="1" value="3">
+
+    <label for="requestInterval">Request Interval (sec):</label>
+    <input type="number" id="requestInterval" min="1" value="5">
+
+    <label for="strategySelect">Assignment Strategy:</label>
+    <select id="strategySelect">
+      <!-- dynamically populated -->
+    </select>
+
+    <button onclick="applySimulatorConfig()">✅ Apply Config</button>
+    <button onclick="startSimulation()">▶️ Start Simulation</button>
+    <button onclick="stopSimulation()">⏹️ Stop Simulation</button>
+  </div>
+
+  <div id="logPanel">
+    <h3>📋 Simulation Log</h3>
+    <ul id="logList"></ul>
+  </div>
+
+  <script type="module" src="/static/js/simulator.js"></script>
+</body>
+</html>

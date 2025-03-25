@@ -20,6 +20,10 @@ class Simulation:
     def is_running(self):
         return self.running
 
+    def set_request_interval(self, interval):
+        self.interval = interval
+        print(f"⏱️ Simulation request interval set to {interval} seconds.")
+
     def _run_loop(self):
         """Main simulation loop."""
         graph = self.system.hospital.get_graph()
