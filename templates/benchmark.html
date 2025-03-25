@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hospital Transport Benchmark</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/benchmark.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="benchmark-header">
+    <h1>🔬 Hospital Transport Benchmark Suite</h1>
+    <div>
+      <span id="benchmark-status">Status: Ready</span>
+      <a href="/" class="back-button">← Back to Dashboard</a>
+    </div>
+  </div>
+
+  <div class="benchmark-container">
+    <div class="benchmark-sidebar">
+      <div class="panel">
+        <h3><i class="fas fa-sliders-h"></i> Benchmark Configuration</h3>
+
+        <div class="form-group">
+          <label for="transporterCountSlider">Number of Transporters:</label>
+          <div class="slider-container">
+            <input type="range" id="transporterCountSlider" min="1" max="10" value="3" class="slider">
+            <span id="transporterCountValue" class="slider-value">3</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="randomRunsSlider">Random Strategy Simulations:</label>
+          <div class="slider-container">
+            <input type="range" id="randomRunsSlider" min="10" max="1000" step="10" value="100" class="slider">
+            <span id="randomRunsValue" class="slider-value">100</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Benchmark Strategies:</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="strategyOptimal" checked>
+              <span>ILP: Makespan</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="strategyEqual">
+              <span>ILP: Equal Workload</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="strategyUrgency">
+              <span>ILP: Urgency First</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="strategyRandom" checked>
+              <span>Random Assignment</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Transport Scenarios:</label>
+          <div id="scenario-list" class="scenario-list">
+            <div class="scenario-item">
+              <div class="scenario-info">
+                <div class="scenario-name">Default Scenario</div>
+                <div class="scenario-details">10 requests, varied locations</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" checked>
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="scenario-item">
+              <div class="scenario-info">
+                <div class="scenario-name">Emergency Heavy</div>
+                <div class="scenario-details">6 requests from Emergency</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="scenario-item">
+              <div class="scenario-info">
+                <div class="scenario-name">Distributed</div>
+                <div class="scenario-details">15 requests evenly distributed</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <button id="add-scenario-btn" class="btn secondary small">
+              <i class="fas fa-plus"></i> Add Scenario
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Visualization Options:</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="showHistogram" checked>
+              <span>Completion Time Histogram</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="showWorkload" checked>
+              <span>Workload Distribution</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="showCDF">
+              <span>Cumulative Distribution</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="showMetrics" checked>
+              <span>Summary Metrics</span>
+            </label>
+          </div>
+        </div>
+
+        <button id="run-benchmark-btn" class="btn primary">
+          <i class="fas fa-play"></i> Run Benchmark
+        </button>
+      </div>
+
+      <div class="panel">
+        <h3><i class="fas fa-history"></i> Recent Benchmark Runs</h3>
+        <div class="recent-runs">
+          <div class="benchmark-run-item">
+            <div class="benchmark-run-header">
+              <span class="benchmark-time">Today, 14:32</span>
+              <span class="benchmark-label">3 Transporters, 100 Runs</span>
+            </div>
+            <div class="benchmark-stats">
+              <div>Optimal: <span class="stat-highlight">34.5s</span></div>
+              <div>Random Avg: <span class="stat-highlight">52.8s</span></div>
+              <div>Improvement: <span class="stat-highlight">34.7%</span></div>
+            </div>
+            <button class="btn small secondary">Load Results</button>
+          </div>
+          <div class="benchmark-run-item">
+            <div class="benchmark-run-header">
+              <span class="benchmark-time">Today, 13:15</span>
+              <span class="benchmark-label">5 Transporters, 200 Runs</span>
+            </div>
+            <div class="benchmark-stats">
+              <div>Optimal: <span class="stat-highlight">28.2s</span></div>
+              <div>Random Avg: <span class="stat-highlight">41.3s</span></div>
+              <div>Improvement: <span class="stat-highlight">31.7%</span></div>
+            </div>
+            <button class="btn small secondary">Load Results</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="benchmark-main">
+      <div class="results-header">
+        <h2>Benchmark Results</h2>
+        <div class="results-actions">
+          <button id="export-data-btn" class="btn secondary">
+            <i class="fas fa-download"></i> Export Data
+          </button>
+          <button id="save-benchmark-btn" class="btn secondary">
+            <i class="fas fa-save"></i> Save Benchmark
+          </button>
+        </div>
+      </div>
+
+      <div class="benchmark-tabs">
+        <button class="tab-btn active" data-tab="tab-summary">Summary</button>
+        <button class="tab-btn" data-tab="tab-histogram">Histogram</button>
+        <button class="tab-btn" data-tab="tab-workload">Workload</button>
+        <button class="tab-btn" data-tab="tab-raw">Raw Data</button>
+      </div>
+
+      <div class="tab-content">
+        <div id="tab-summary" class="tab-pane active">
+          <div class="summary-results">
+            <div class="result-cards">
+              <div class="result-card">
+                <div class="card-title">Optimal Makespan</div>
+                <div class="card-value" id="optimal-makespan">--</div>
+                <div class="card-unit">seconds</div>
+              </div>
+              <div class="result-card">
+                <div class="card-title">Random Average</div>
+                <div class="card-value" id="random-average">--</div>
+                <div class="card-unit">seconds</div>
+              </div>
+              <div class="result-card highlight">
+                <div class="card-title">Improvement</div>
+                <div class="card-value" id="improvement-percentage">--</div>
+                <div class="card-unit">percent</div>
+              </div>
+              <div class="result-card">
+                <div class="card-title">Std. Deviation</div>
+                <div class="card-value" id="random-std">--</div>
+                <div class="card-unit">seconds</div>
+              </div>
+            </div>
+
+            <div class="metrics-chart-container">
+              <canvas id="metrics-chart"></canvas>
+            </div>
+
+            <div class="summary-table-container">
+              <h3>Strategy Comparison</h3>
+              <table id="strategy-comparison-table" class="results-table">
+                <thead>
+                  <tr>
+                    <th>Strategy</th>
+                    <th>Mean Time</th>
+                    <th>Median Time</th>
+                    <th>Std Dev</th>
+                    <th>Max Time</th>
+                    <th>Workload Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>ILP: Makespan</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                  </tr>
+                  <tr>
+                    <td>Random</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                    <td>--</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-histogram" class="tab-pane">
+          <div class="chart-container">
+            <canvas id="histogram-chart"></canvas>
+          </div>
+          <div class="chart-description">
+            <p>This histogram shows the distribution of completion times for the random assignment strategy across all simulation runs. The red line represents the mean completion time, while the blue line shows the optimal (ILP) completion time.</p>
+            <p>A tighter distribution (smaller spread) indicates more consistent performance.</p>
+          </div>
+        </div>
+
+        <div id="tab-workload" class="tab-pane">
+          <div class="workload-charts">
+            <div class="workload-chart-container">
+              <h3>Optimal Workload Distribution</h3>
+              <canvas id="optimal-workload-chart"></canvas>
+            </div>
+            <div class="workload-chart-container">
+              <h3>Random Workload Distribution</h3>
+              <canvas id="random-workload-chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-description">
+            <p>These charts show how work is distributed across transporters. Each bar represents the total estimated travel time for a transporter.</p>
+            <p>The standard deviation (σ) provides a measure of workload balance - lower values indicate more even distribution.</p>
+          </div>
+        </div>
+
+        <div id="tab-raw" class="tab-pane">
+          <div class="raw-data-container">
+            <div class="raw-data-controls">
+              <select id="raw-data-strategy">
+                <option value="random">Random Assignment</option>
+                <option value="optimal">ILP: Makespan</option>
+              </select>
+              <input type="text" id="raw-data-filter" placeholder="Filter results...">
+            </div>
+            <table id="raw-data-table" class="results-table">
+              <thead>
+                <tr>
+                  <th>Run #</th>
+                  <th>Strategy</th>
+                  <th>Makespan</th>
+                  <th>Workload σ</th>
+                  <th>Max Load</th>
+                  <th>Min Load</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="add-scenario-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h3>Add Custom Scenario</h3>
+      <div class="form-group">
+        <label for="scenario-name">Scenario Name:</label>
+        <input type="text" id="scenario-name" placeholder="E.g., High Urgency Scenario">
+      </div>
+      <div class="form-group">
+        <label for="request-count">Number of Requests:</label>
+        <input type="number" id="request-count" min="1" max="30" value="10">
+      </div>
+      <div id="request-builder" class="request-builder">
+        <h4>Request Builder</h4>
+        <div class="request-row header">
+          <div class="request-cell">Origin</div>
+          <div class="request-cell">Destination</div>
+          <div class="request-cell">Urgent</div>
+          <div class="request-cell">Actions</div>
+        </div>
+        <div class="request-row">
+          <div class="request-cell">
+            <select class="origin-select">
+              <option>Emergency</option>
+              <option>ICU</option>
+              <option>Surgery</option>
+              <option>Radiology</option>
+              <!-- More options would be dynamically populated -->
+            </select>
+          </div>
+          <div class="request-cell">
+            <select class="destination-select">
+              <option>ICU</option>
+              <option>Emergency</option>
+              <option>Surgery</option>
+              <option>Radiology</option>
+              <!-- More options would be dynamically populated -->
+            </select>
+          </div>
+          <div class="request-cell">
+            <select class="urgent-select">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+          <div class="request-cell">
+            <button class="btn small danger">Remove</button>
+          </div>
+        </div>
+        <!-- More request rows would be added dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn secondary" id="add-request-btn">
+          <i class="fas fa-plus"></i> Add Request
+        </button>
+        <button class="btn primary" id="save-scenario-btn">Save Scenario</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="benchmark-progress-modal" class="modal">
+    <div class="modal-content">
+      <h3>Benchmark in Progress</h3>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 35%"></div>
+        </div>
+        <div class="progress-text">35% - Running Random Simulations (35/100)</div>
+      </div>
+      <div class="progress-details">
+        <div class="progress-stat">
+          <span class="stat-label">Elapsed Time:</span>
+          <span class="stat-value">00:01:23</span>
+        </div>
+        <div class="progress-stat">
+          <span class="stat-label">Estimated Completion:</span>
+          <span class="stat-value">00:02:45</span>
+        </div>
+        <div class="progress-stat">
+          <span class="stat-label">Current Task:</span>
+          <span class="stat-value">Simulating Random Assignment</span>
+        </div>
+      </div>
+      <button class="btn danger" id="cancel-benchmark-btn">Cancel Benchmark</button>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/benchmark.js') }}"></script>
+</body>
+</html>
