@@ -10,7 +10,8 @@ class HospitalTransportViewer:
 
     def _register_routes(self):
         # Pages
-        self.app.add_url_rule("/", "index", self.index)
+        self.app.add_url_rule("/", "landing", self.landing_page)
+        self.app.add_url_rule("/playground", "playground", self.playground)
         self.app.add_url_rule("/simulator", "simulator", self.simulator_page)
 
         # Transport System
@@ -36,8 +37,13 @@ class HospitalTransportViewer:
 
     # --- Pages ---
 
-    def index(self):
+    def landing_page(self):
+        """Serve the landing page."""
         return render_template("index.html")
+
+    def playground(self):
+        """Serve the playground page (former index)."""
+        return render_template("playground.html")
 
     def simulator_page(self):
         return render_template("simulator.html")
@@ -162,4 +168,3 @@ class HospitalTransportViewer:
         strategies = self.system.transport_manager.get_available_strategy_names()
         print(strategies)
         return jsonify(strategies)
-

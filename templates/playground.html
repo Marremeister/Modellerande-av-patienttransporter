@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Transport Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<div id="main-header">
+  <h1>🚑 Hospital Transport Playground</h1>
+  <div class="main-actions">
+    <a href="/simulator" class="nav-button">🚀 Simulator</a>
+    <a href="/benchmark" class="nav-button">📊 Benchmark</a>
+    <a href="/" class="nav-button">🏠 Home</a>
+  </div>
+</div>
+
+    <div id="logPanel">
+        <h3>🚑 Transport Log</h3>
+        <ul id="logList"></ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="location.href='/simulator'">🚀 Launch Simulator</button>
+
+        <label for="transporterSelect">Choose a Transporter:</label>
+        <select id="transporterSelect"></select>
+
+        <label for="statusDropdown">Set Transporter Status:</label>
+        <select id="statusDropdown">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+        </select>
+        <button onclick="setTransporterStatus()">Update Status</button>
+
+        <button onclick="deployOptimization()">Solve with Optimizer</button>
+        <button onclick="deployRandomness()">Solve with Randomizer</button>
+
+        <div id="sim-clock"
+            style="position: fixed; top: 10px; right: 10px;
+                   background: white; padding: 8px 12px;
+                   border: 1px solid #ccc; border-radius: 4px;
+                   font-size: 18px; font-family: monospace; z-index: 1000;">
+            ⏱️ Simulation Time: 00:00:00
+        </div>
+
+        <label for="requestSelect">Choose a Transport Request:</label>
+        <select id="requestSelect"></select>
+
+        <input type="text" id="transporterName" placeholder="Transporter Name">
+        <button onclick="addTransporter()">Add Transporter</button>
+
+        <button onclick="initiateTransport()">Initiate Patient Transport</button>
+        <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
+
+        <button onclick="simulateOptimally()">Simulate Optimally</button>
+        <button onclick="simulateRandomly()">Simulate Randomly</button>
+        <button id="stopSimulationBtn" onclick="stopSimulation()" style="display:none;">Stop Simulation</button>
+    </div>
+
+    <div class="request-form">
+        <h3>Create New Transport Request</h3>
+
+        <label for="originDropdown">Origin:</label>
+        <select id="originDropdown"></select>
+
+        <label for="destinationDropdown">Destination:</label>
+        <select id="destinationDropdown"></select>
+
+        <label for="typeDropdown">Transport Type:</label>
+        <select id="typeDropdown">
+            <option value="stretcher">Stretcher</option>
+            <option value="wheelchair">Wheelchair</option>
+        </select>
+
+        <label for="urgentDropdown">Urgency:</label>
+        <select id="urgentDropdown">
+            <option value="true">Urgent</option>
+            <option value="false">Not Urgent</option>
+        </select>
+
+        <button onclick="createRequest()">Create Request</button>
+    </div>
+    <button id="toggleTableBtn">📂 Show/Hide Transport Table</button>
+
+<div id="transportTableContainer">
+    <div class="transport-table">
+        <h3>📋 All Transports</h3>
+        <table id="transportTable">
+            <thead>
+                <tr>
+                    <th>Origin</th>
+                    <th>Destination</th>
+                    <th>Type</th>
+                    <th>Urgent</th>
+                    <th>Transporter</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+
+
+    <svg viewBox="-100 -100 1400 1000"></svg>
+
+    <!-- Load external JavaScript -->
+    <script src="/static/js/main.js"></script>
+
+
+</body>
+</html>

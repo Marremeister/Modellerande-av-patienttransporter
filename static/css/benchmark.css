@@ -746,3 +746,11 @@ input:focus, select:focus {
     min-width: 45%;
   }
 }
+
+
+
+.header-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}

@@ -1,111 +1,477 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hospital Transport Viewer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hospital Transport System</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <style>
+    /* Additional styles for icon illustrations */
+    .tool-illustration {
+      height: 180px;
+      margin: 1.5rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.03);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .illustration-icon {
+      font-size: 5rem;
+      color: rgba(0,0,0,0.15);
+      transform: scale(1);
+      transition: transform 0.3s ease, color 0.3s ease;
+    }
+
+    .tool-card:hover .illustration-icon {
+      transform: scale(1.1);
+    }
+
+    .blue-card .illustration-icon {
+      color: rgba(52, 152, 219, 0.25);
+    }
+
+    .red-card .illustration-icon {
+      color: rgba(231, 76, 60, 0.25);
+    }
+
+    .green-card .illustration-icon {
+      color: rgba(46, 204, 113, 0.25);
+    }
+
+    /* Background patterns */
+    .tool-illustration::before {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-image:
+        radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px),
+        radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-position: 0 0, 10px 10px;
+      opacity: 0.5;
+    }
+
+    /* Animation dots */
+    .dots-container {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.2);
+    }
+
+    .blue-card .dot {
+      background: rgba(52, 152, 219, 0.3);
+    }
+
+    .red-card .dot {
+      background: rgba(231, 76, 60, 0.3);
+    }
+
+    .green-card .dot {
+      background: rgba(46, 204, 113, 0.3);
+    }
+
+    .tool-card:hover .dot:nth-child(1) {
+      animation: pulse-dot 1.5s infinite;
+    }
+
+    .tool-card:hover .dot:nth-child(2) {
+      animation: pulse-dot 1.5s infinite 0.3s;
+    }
+
+    .tool-card:hover .dot:nth-child(3) {
+      animation: pulse-dot 1.5s infinite 0.6s;
+    }
+
+    @keyframes pulse-dot {
+      0% { transform: scale(1); opacity: 0.3; }
+      50% { transform: scale(1.8); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 0.3; }
+    }
+  </style>
 </head>
 <body>
-
-    <div id="logPanel">
-        <h3>🚑 Transport Log</h3>
-        <ul id="logList"></ul>
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-particles"></div>
+    <div class="container">
+      <div class="hero-content">
+        <div class="logo-container">
+          <div class="logo-icon">
+            <i class="fas fa-hospital"></i>
+          </div>
+        </div>
+        <h1>Hospital Transport System</h1>
+        <p>Intelligent routing and resource management for modern healthcare</p>
+        <div class="hero-buttons">
+          <a href="#tools" class="btn-primary">Explore Tools</a>
+          <a href="#features" class="btn-secondary">View Features</a>
+        </div>
+      </div>
     </div>
+    <div class="hero-wave">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+        <path fill="#ffffff" fill-opacity="1" d="M0,288L48,272C96,256,192,224,288,197.3C384,171,480,149,576,165.3C672,181,768,235,864,250.7C960,267,1056,245,1152,224C1248,203,1344,181,1392,170.7L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+      </svg>
+    </div>
+  </section>
 
-    <h1>Hospital Transport System</h1>
+  <!-- Tools Section -->
+  <section id="tools" class="tools">
+    <div class="container">
+      <h2 class="section-title">Transport Management Tools</h2>
+      <div class="tools-grid">
+        <!-- Simulator Card -->
+        <div class="tool-card" data-aos="fade-up">
+          <div class="tool-card-inner">
+            <div class="tool-card-front blue-card">
+              <div class="tool-icon blue">
+                <i class="fas fa-rocket"></i>
+              </div>
+              <h3>Transport Simulator</h3>
 
-    <div class="controls">
-        <button onclick="location.href='/simulator'">🚀 Launch Simulator</button>
+              <!-- Replaced image with icon illustration -->
+              <div class="tool-illustration">
+                <i class="fas fa-hospital-user illustration-icon"></i>
+                <div class="dots-container">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+              </div>
 
-        <label for="transporterSelect">Choose a Transporter:</label>
-        <select id="transporterSelect"></select>
-
-        <label for="statusDropdown">Set Transporter Status:</label>
-        <select id="statusDropdown">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-        </select>
-        <button onclick="setTransporterStatus()">Update Status</button>
-
-        <button onclick="deployOptimization()">Solve with Optimizer</button>
-        <button onclick="deployRandomness()">Solve with Randomizer</button>
-
-        <div id="sim-clock"
-            style="position: fixed; top: 10px; right: 10px;
-                   background: white; padding: 8px 12px;
-                   border: 1px solid #ccc; border-radius: 4px;
-                   font-size: 18px; font-family: monospace; z-index: 1000;">
-            ⏱️ Simulation Time: 00:00:00
+              <p>Simulate transport operations in real-time</p>
+            </div>
+            <div class="tool-card-back blue">
+              <h3>Transport Simulator</h3>
+              <p>A powerful environment to simulate transport operations with configurable parameters.</p>
+              <ul>
+                <li>Real-time visualization</li>
+                <li>Multiple optimization algorithms</li>
+                <li>Customizable parameters</li>
+                <li>Performance metrics</li>
+              </ul>
+              <a href="/simulator" class="btn-card">Launch Simulator</a>
+            </div>
+          </div>
         </div>
 
-        <label for="requestSelect">Choose a Transport Request:</label>
-        <select id="requestSelect"></select>
+        <!-- Playground Card -->
+        <div class="tool-card" data-aos="fade-up" data-aos-delay="100">
+          <div class="tool-card-inner">
+            <div class="tool-card-front red-card">
+              <div class="tool-icon red">
+                <i class="fas fa-gamepad"></i>
+              </div>
+              <h3>Transport Playground</h3>
 
-        <input type="text" id="transporterName" placeholder="Transporter Name">
-        <button onclick="addTransporter()">Add Transporter</button>
+              <!-- Replaced image with icon illustration -->
+              <div class="tool-illustration">
+                <i class="fas fa-route illustration-icon"></i>
+                <div class="dots-container">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+              </div>
 
-        <button onclick="initiateTransport()">Initiate Patient Transport</button>
-        <button id="returnHomeBtn" onclick="returnHome()">Return Home</button>
+              <p>Interactive control of transport operations</p>
+            </div>
+            <div class="tool-card-back red">
+              <h3>Transport Playground</h3>
+              <p>An interactive environment for manual control of transporters and requests.</p>
+              <ul>
+                <li>Manual request creation</li>
+                <li>Direct transporter control</li>
+                <li>Real-time path visualization</li>
+                <li>Custom assignments</li>
+              </ul>
+              <a href="/playground" class="btn-card">Open Playground</a>
+            </div>
+          </div>
+        </div>
 
-        <button onclick="simulateOptimally()">Simulate Optimally</button>
-        <button onclick="simulateRandomly()">Simulate Randomly</button>
-        <button id="stopSimulationBtn" onclick="stopSimulation()" style="display:none;">Stop Simulation</button>
+        <!-- Benchmark Card -->
+        <div class="tool-card" data-aos="fade-up" data-aos-delay="200">
+          <div class="tool-card-inner">
+            <div class="tool-card-front green-card">
+              <div class="tool-icon green">
+                <i class="fas fa-chart-line"></i>
+              </div>
+              <h3>Transport Benchmark</h3>
+
+              <!-- Replaced image with icon illustration -->
+              <div class="tool-illustration">
+                <i class="fas fa-chart-bar illustration-icon"></i>
+                <div class="dots-container">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+              </div>
+
+              <p>Compare optimization algorithm performance</p>
+            </div>
+            <div class="tool-card-back green">
+              <h3>Transport Benchmark</h3>
+              <p>Advanced benchmarking system for evaluating transport algorithms.</p>
+              <ul>
+                <li>Multiple test scenarios</li>
+                <li>Algorithm comparison</li>
+                <li>Detailed analytics</li>
+                <li>Performance visualization</li>
+              </ul>
+              <a href="/benchmark" class="btn-card">Run Benchmark</a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <div class="request-form">
-        <h3>Create New Transport Request</h3>
+  <!-- Features Section -->
+  <section id="features" class="features">
+    <div class="container">
+      <h2 class="section-title light">Advanced System Features</h2>
+      <div class="features-grid">
+        <div class="feature-item" data-aos="fade-right">
+          <div class="feature-icon">
+            <i class="fas fa-brain"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Intelligent Optimization</h3>
+            <p>Advanced algorithms for optimal transport routes including ILP, Genetic Algorithm, and Cluster-based approaches.</p>
+          </div>
+        </div>
 
-        <label for="originDropdown">Origin:</label>
-        <select id="originDropdown"></select>
+        <div class="feature-item" data-aos="fade-left">
+          <div class="feature-icon">
+            <i class="fas fa-bolt"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Real-time Visualization</h3>
+            <p>Watch transporters move through the hospital in real-time with dynamic path visualization and status updates.</p>
+          </div>
+        </div>
 
-        <label for="destinationDropdown">Destination:</label>
-        <select id="destinationDropdown"></select>
+        <div class="feature-item" data-aos="fade-right">
+          <div class="feature-icon">
+            <i class="fas fa-balance-scale"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Workload Balancing</h3>
+            <p>Ensure fair distribution of transport tasks among all available transporters for optimal efficiency.</p>
+          </div>
+        </div>
 
-        <label for="typeDropdown">Transport Type:</label>
-        <select id="typeDropdown">
-            <option value="stretcher">Stretcher</option>
-            <option value="wheelchair">Wheelchair</option>
-        </select>
+        <div class="feature-item" data-aos="fade-left">
+          <div class="feature-icon">
+            <i class="fas fa-heartbeat"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Priority-based Scheduling</h3>
+            <p>Handle urgent transports with priority scheduling to ensure critical patients receive immediate attention.</p>
+          </div>
+        </div>
 
-        <label for="urgentDropdown">Urgency:</label>
-        <select id="urgentDropdown">
-            <option value="true">Urgent</option>
-            <option value="false">Not Urgent</option>
-        </select>
+        <div class="feature-item" data-aos="fade-right">
+          <div class="feature-icon">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Performance Analytics</h3>
+            <p>Comprehensive metrics and visualizations to evaluate and improve transport system efficiency.</p>
+          </div>
+        </div>
 
-        <button onclick="createRequest()">Create Request</button>
+        <div class="feature-item" data-aos="fade-left">
+          <div class="feature-icon">
+            <i class="fas fa-route"></i>
+          </div>
+          <div class="feature-content">
+            <h3>Intelligent Routing</h3>
+            <p>Optimize paths between departments using advanced graph algorithms for minimal transport time.</p>
+          </div>
+        </div>
+      </div>
     </div>
-    <button id="toggleTableBtn">📂 Show/Hide Transport Table</button>
+  </section>
 
-<div id="transportTableContainer">
-    <div class="transport-table">
-        <h3>📋 All Transports</h3>
-        <table id="transportTable">
-            <thead>
-                <tr>
-                    <th>Origin</th>
-                    <th>Destination</th>
-                    <th>Type</th>
-                    <th>Urgent</th>
-                    <th>Transporter</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+  <!-- Info Section -->
+  <section class="info">
+    <div class="container">
+      <div class="info-grid">
+        <div class="info-content" data-aos="fade-right">
+          <h2>Advanced Transport Management</h2>
+          <p>The Hospital Transport System provides a comprehensive solution for managing patient and resource transport within healthcare facilities.</p>
+          <p>By optimizing routes and intelligently assigning tasks, the system reduces wait times, improves resource utilization, and enhances overall hospital efficiency.</p>
+          <div class="info-stats">
+            <div class="stat-item">
+              <div class="stat-value">30%</div>
+              <div class="stat-label">Efficiency Increase</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">25%</div>
+              <div class="stat-label">Reduced Wait Times</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">40%</div>
+              <div class="stat-label">Workload Balance</div>
+            </div>
+          </div>
+        </div>
+        <div class="info-image" data-aos="fade-left">
+          <!-- Replaced with SVG illustration -->
+          <svg viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="gridGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3498db" stop-opacity="0.2"/>
+                <stop offset="100%" stop-color="#2c3e50" stop-opacity="0.2"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Background -->
+            <rect x="10" y="10" width="480" height="380" rx="10" fill="url(#gridGradient)" />
+
+            <!-- Grid lines -->
+            <g stroke="#3498db" stroke-width="1" stroke-opacity="0.2">
+              <!-- Horizontal lines -->
+              <line x1="10" y1="50" x2="490" y2="50" />
+              <line x1="10" y1="100" x2="490" y2="100" />
+              <line x1="10" y1="150" x2="490" y2="150" />
+              <line x1="10" y1="200" x2="490" y2="200" />
+              <line x1="10" y1="250" x2="490" y2="250" />
+              <line x1="10" y1="300" x2="490" y2="300" />
+              <line x1="10" y1="350" x2="490" y2="350" />
+
+              <!-- Vertical lines -->
+              <line x1="70" y1="10" x2="70" y2="390" />
+              <line x1="130" y1="10" x2="130" y2="390" />
+              <line x1="190" y1="10" x2="190" y2="390" />
+              <line x1="250" y1="10" x2="250" y2="390" />
+              <line x1="310" y1="10" x2="310" y2="390" />
+              <line x1="370" y1="10" x2="370" y2="390" />
+              <line x1="430" y1="10" x2="430" y2="390" />
+            </g>
+
+            <!-- Hospital departments -->
+            <g>
+              <!-- ER -->
+              <rect x="70" y="70" width="60" height="60" rx="5" fill="#e74c3c" opacity="0.8" />
+              <text x="100" y="100" font-size="10" text-anchor="middle" fill="white">ER</text>
+
+              <!-- ICU -->
+              <rect x="190" y="70" width="60" height="60" rx="5" fill="#3498db" opacity="0.8" />
+              <text x="220" y="100" font-size="10" text-anchor="middle" fill="white">ICU</text>
+
+              <!-- Surgery -->
+              <rect x="310" y="70" width="60" height="60" rx="5" fill="#9b59b6" opacity="0.8" />
+              <text x="340" y="100" font-size="10" text-anchor="middle" fill="white">Surgery</text>
+
+              <!-- Radiology -->
+              <rect x="70" y="190" width="60" height="60" rx="5" fill="#2ecc71" opacity="0.8" />
+              <text x="100" y="220" font-size="10" text-anchor="middle" fill="white">Radiology</text>
+
+              <!-- Pharmacy -->
+              <rect x="190" y="190" width="60" height="60" rx="5" fill="#f39c12" opacity="0.8" />
+              <text x="220" y="220" font-size="10" text-anchor="middle" fill="white">Pharmacy</text>
+
+              <!-- Lab -->
+              <rect x="310" y="190" width="60" height="60" rx="5" fill="#1abc9c" opacity="0.8" />
+              <text x="340" y="220" font-size="10" text-anchor="middle" fill="white">Lab</text>
+
+              <!-- Reception -->
+              <rect x="70" y="310" width="60" height="60" rx="5" fill="#34495e" opacity="0.8" />
+              <text x="100" y="340" font-size="10" text-anchor="middle" fill="white">Reception</text>
+
+              <!-- Ward -->
+              <rect x="190" y="310" width="60" height="60" rx="5" fill="#7f8c8d" opacity="0.8" />
+              <text x="220" y="340" font-size="10" text-anchor="middle" fill="white">Ward</text>
+
+              <!-- Admin -->
+              <rect x="310" y="310" width="60" height="60" rx="5" fill="#2c3e50" opacity="0.8" />
+              <text x="340" y="340" font-size="10" text-anchor="middle" fill="white">Admin</text>
+            </g>
+
+            <!-- Transporter path -->
+            <path d="M100,70 L100,190 L220,190 L220,310 L340,310"
+                  stroke="#e74c3c"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-dasharray="8,4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+              <animate attributeName="stroke-dashoffset"
+                       from="100"
+                       to="0"
+                       dur="10s"
+                       repeatCount="indefinite" />
+            </path>
+
+            <!-- Transporter -->
+            <circle cx="100" cy="70" r="8" fill="#e74c3c">
+              <animateMotion
+                path="M0,0 L0,120 L120,120 L120,240 L240,240"
+                dur="10s"
+                repeatCount="indefinite" />
+            </circle>
+          </svg>
+        </div>
+      </div>
     </div>
-</div>
+  </section>
 
+  <!-- CTA Section -->
+  <section class="cta">
+    <div class="container">
+      <h2>Ready to optimize your hospital transport?</h2>
+      <p>Choose the tool that fits your current needs</p>
+      <div class="cta-buttons">
+        <a href="/simulator" class="btn-cta blue">Simulator</a>
+        <a href="/playground" class="btn-cta red">Playground</a>
+        <a href="/benchmark" class="btn-cta green">Benchmark</a>
+      </div>
+    </div>
+  </section>
 
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-logo">
+          <div class="footer-icon">
+            <i class="fas fa-hospital"></i>
+          </div>
+          <span>Hospital Transport System</span>
+        </div>
+        <div class="footer-links">
+          <a href="/simulator">Simulator</a>
+          <a href="/playground">Playground</a>
+          <a href="/benchmark">Benchmark</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2025 Hospital Transport System | Advanced Healthcare Management</p>
+      </div>
+    </div>
+  </footer>
 
-    <svg viewBox="-100 -100 1400 1000"></svg>
-
-    <!-- Load external JavaScript -->
-    <script src="/static/js/main.js"></script>
-
-
+  <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
 </body>
 </html>

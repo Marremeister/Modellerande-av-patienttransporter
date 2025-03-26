@@ -361,3 +361,38 @@ svg {
         height: 50vh;
     }
 }
+
+#main-header {
+  background: linear-gradient(90deg, #2c3e50, #4b6cb7);
+  color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+#main-header h1 {
+  color: white;
+  margin: 0;
+  font-size: 24px;
+}
+
+.main-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.nav-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-decoration: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.3s;
+}
+
+.nav-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

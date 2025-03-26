@@ -402,3 +402,13 @@ text.transporter-label {
     stroke: white !important;
     stroke-width: 0.5px !important;
 }
+
+
+.header-links {
+  display: flex;
+  gap: 10px;
+}
+
+#sim-header {
+  justify-content: space-between;
+}
