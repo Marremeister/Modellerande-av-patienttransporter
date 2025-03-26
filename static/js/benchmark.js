@@ -700,120 +700,224 @@ function updateAllResults() {
 }
 
 function updateSummaryResults() {
-    // Determine which strategy to compare against Random
-    let optimalTimes = [];
-    let optimalWorkload = {};
+    // Get all active strategies with results
+    const activeStrategies = [];
 
-    // Use Makespan as default if available
+    // Define color schemes for each strategy
+    const strategyColors = {
+        'ILP: Makespan': 'rgba(75, 108, 183, 0.7)',
+        'ILP: Equal Workload': 'rgba(241, 196, 15, 0.7)',
+        'ILP: Urgency First': 'rgba(230, 126, 34, 0.7)',
+        'ILP: Cluster-Based': 'rgba(46, 204, 113, 0.7)',
+        'Genetic Algorithm': 'rgba(155, 89, 182, 0.7)',
+        'Random': 'rgba(231, 76, 60, 0.7)'
+    };
+
+    const strategyBorderColors = {
+        'ILP: Makespan': 'rgba(75, 108, 183, 1)',
+        'ILP: Equal Workload': 'rgba(241, 196, 15, 1)',
+        'ILP: Urgency First': 'rgba(230, 126, 34, 1)',
+        'ILP: Cluster-Based': 'rgba(46, 204, 113, 1)',
+        'Genetic Algorithm': 'rgba(155, 89, 182, 1)',
+        'Random': 'rgba(231, 76, 60, 1)'
+    };
+
+    // Check which strategies have data and add them to active strategies
     if (benchmarkResults.ilpMakespan.length > 0) {
-        optimalTimes = benchmarkResults.ilpMakespan;
-        optimalWorkload = workloadData.ilpMakespan;
-    }
-    // Otherwise use Cluster-Based if available
-    else if (benchmarkResults.ilpCluster.length > 0) {
-        optimalTimes = benchmarkResults.ilpCluster;
-        optimalWorkload = workloadData.ilpCluster;
-    }
-    // Otherwise use Genetic if available
-    else if (benchmarkResults.geneticAlgorithm.length > 0) {
-        optimalTimes = benchmarkResults.geneticAlgorithm;
-        optimalWorkload = workloadData.geneticAlgorithm;
+        activeStrategies.push({
+            name: 'ILP: Makespan',
+            times: benchmarkResults.ilpMakespan,
+            workload: workloadData.ilpMakespan
+        });
     }
 
-    // If we have Random results and some comparison strategy
-    if (benchmarkResults.random.length > 0 && optimalTimes.length > 0) {
-        // Calculate metrics for display
-        const optimalTime = optimalTimes[0];
-        const randomMean = calculateMean(benchmarkResults.random);
-        const randomMedian = calculateMedian(benchmarkResults.random);
-        const randomStd = calculateStandardDeviation(benchmarkResults.random);
-        const randomMin = Math.min(...benchmarkResults.random);
-        const randomMax = Math.max(...benchmarkResults.random);
+    if (benchmarkResults.ilpEqual.length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Equal Workload',
+            times: benchmarkResults.ilpEqual,
+            workload: workloadData.ilpEqual
+        });
+    }
 
-        const improvementPercentage = ((randomMean - optimalTime) / randomMean) * 100;
+    if (benchmarkResults.ilpUrgency.length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Urgency First',
+            times: benchmarkResults.ilpUrgency,
+            workload: workloadData.ilpUrgency
+        });
+    }
+
+    if (benchmarkResults.ilpCluster.length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Cluster-Based',
+            times: benchmarkResults.ilpCluster,
+            workload: workloadData.ilpCluster
+        });
+    }
+
+    if (benchmarkResults.geneticAlgorithm.length > 0) {
+        activeStrategies.push({
+            name: 'Genetic Algorithm',
+            times: benchmarkResults.geneticAlgorithm,
+            workload: workloadData.geneticAlgorithm
+        });
+    }
+
+    if (benchmarkResults.random.length > 0) {
+        activeStrategies.push({
+            name: 'Random',
+            times: benchmarkResults.random,
+            workload: workloadData.random
+        });
+    }
+
+    // If we have no strategies with data, exit
+    if (activeStrategies.length === 0) {
+        return;
+    }
+
+    // Calculate metrics for each strategy
+    const strategyMetrics = {};
+
+    activeStrategies.forEach(strategy => {
+        let mean, median, std, min, max;
+
+        if (strategy.name === 'Random' && strategy.times.length > 1) {
+            // Random has multiple samples, so calculate statistics
+            mean = calculateMean(strategy.times);
+            median = calculateMedian(strategy.times);
+            std = calculateStandardDeviation(strategy.times);
+            min = Math.min(...strategy.times);
+            max = Math.max(...strategy.times);
+        } else {
+            // Other strategies have single value
+            const value = strategy.times[0];
+            mean = value;
+            median = value;
+            std = 0;
+            min = value;
+            max = value;
+        }
+
+        // Calculate workload std
+        const workloadStd = calculateWorkloadStd(strategy.workload);
+
+        strategyMetrics[strategy.name] = {
+            mean, median, std, min, max, workloadStd
+        };
+    });
+
+    // Update cards and UI with the best (non-random) strategy
+    const bestStrategy = activeStrategies
+        .filter(s => s.name !== 'Random')
+        .sort((a, b) => strategyMetrics[a.name].mean - strategyMetrics[b.name].mean)[0];
+
+    if (bestStrategy && activeStrategies.some(s => s.name === 'Random')) {
+        // If we have both a best strategy and random, calculate improvement
+        const bestTime = strategyMetrics[bestStrategy.name].mean;
+        const randomMean = strategyMetrics['Random'].mean;
+        const improvementPercentage = ((randomMean - bestTime) / randomMean) * 100;
 
         // Update summary cards
-        document.getElementById('optimal-makespan').textContent = optimalTime.toFixed(2);
+        document.getElementById('optimal-makespan').textContent = bestTime.toFixed(2);
         document.getElementById('random-average').textContent = randomMean.toFixed(2);
         document.getElementById('improvement-percentage').textContent = improvementPercentage.toFixed(1);
-        document.getElementById('random-std').textContent = randomStd.toFixed(2);
-
-        // Update metrics chart
-        charts.metricsChart.data.datasets[0].data = [optimalTime, optimalTime, 0, optimalTime, optimalTime];
-        charts.metricsChart.data.datasets[1].data = [randomMean, randomMedian, randomStd, randomMin, randomMax];
-        charts.metricsChart.update();
-
-        // Update comparison table
-        updateComparisonTable(optimalTime, optimalWorkload, randomMean, randomMedian, randomStd, randomMax);
+        document.getElementById('random-std').textContent = strategyMetrics['Random'].std.toFixed(2);
     }
+
+    // Update metrics chart - completely rebuild the datasets
+    const metricLabels = ['Mean', 'Median', 'Std Dev', 'Min', 'Max'];
+
+    // Create a dataset for each strategy
+    const datasets = activeStrategies.map(strategy => {
+        const metrics = strategyMetrics[strategy.name];
+
+        return {
+            label: strategy.name,
+            backgroundColor: strategyColors[strategy.name],
+            borderColor: strategyBorderColors[strategy.name],
+            borderWidth: 1,
+            data: [
+                metrics.mean,
+                metrics.median,
+                metrics.std,
+                metrics.min,
+                metrics.max
+            ]
+        };
+    });
+
+    // Update the chart
+    charts.metricsChart.data.datasets = datasets;
+    charts.metricsChart.update();
+
+    // Update comparison table
+    updateComparisonTable(activeStrategies, strategyMetrics);
 }
 
 // Helper function to update the comparison table
-function updateComparisonTable(optimalTime, optimalWorkload, randomMean, randomMedian, randomStd, randomMax) {
-    const optimalWorkloadStd = calculateWorkloadStd(optimalWorkload);
-    const randomWorkloadStd = calculateWorkloadStd(workloadData.random);
-
+function updateComparisonTable(activeStrategies, strategyMetrics) {
     const tableBody = document.querySelector('#strategy-comparison-table tbody');
 
     // Clear existing rows
     tableBody.innerHTML = '';
 
-    // Add row for optimal strategy
-    const optimalRow = document.createElement('tr');
-    optimalRow.innerHTML = `
-        <td>Optimal Strategy</td>
-        <td>${optimalTime.toFixed(2)}s</td>
-        <td>${optimalTime.toFixed(2)}s</td>
-        <td>0.00</td>
-        <td>${optimalTime.toFixed(2)}s</td>
-        <td>${optimalWorkloadStd.toFixed(2)}</td>
-    `;
-    tableBody.appendChild(optimalRow);
+    // Add a row for each strategy
+    activeStrategies.forEach(strategy => {
+        const metrics = strategyMetrics[strategy.name];
 
-    // Add row for Random
-    const randomRow = document.createElement('tr');
-    randomRow.innerHTML = `
-        <td>Random</td>
-        <td>${randomMean.toFixed(2)}s</td>
-        <td>${randomMedian.toFixed(2)}s</td>
-        <td>${randomStd.toFixed(2)}</td>
-        <td>${randomMax.toFixed(2)}s</td>
-        <td>${randomWorkloadStd.toFixed(2)}</td>
-    `;
-    tableBody.appendChild(randomRow);
-
-    // Add rows for other strategies if they have results
-    if (benchmarkResults.ilpCluster.length > 0) {
-        const clusterTime = benchmarkResults.ilpCluster[0];
-        const clusterWorkloadStd = calculateWorkloadStd(workloadData.ilpCluster);
-
-        const clusterRow = document.createElement('tr');
-        clusterRow.innerHTML = `
-            <td>ILP: Cluster-Based</td>
-            <td>${clusterTime.toFixed(2)}s</td>
-            <td>${clusterTime.toFixed(2)}s</td>
-            <td>0.00</td>
-            <td>${clusterTime.toFixed(2)}s</td>
-            <td>${clusterWorkloadStd.toFixed(2)}</td>
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${strategy.name}</td>
+            <td>${metrics.mean.toFixed(2)}s</td>
+            <td>${metrics.median.toFixed(2)}s</td>
+            <td>${metrics.std.toFixed(2)}</td>
+            <td>${metrics.max.toFixed(2)}s</td>
+            <td>${metrics.workloadStd.toFixed(2)}</td>
         `;
-        tableBody.appendChild(clusterRow);
-    }
 
-    if (benchmarkResults.geneticAlgorithm.length > 0) {
-        const geneticTime = benchmarkResults.geneticAlgorithm[0];
-        const geneticWorkloadStd = calculateWorkloadStd(workloadData.geneticAlgorithm);
+        // Highlight the best mean time
+        if (strategy.name !== 'Random' &&
+            metrics.mean === Math.min(...activeStrategies
+                                         .filter(s => s.name !== 'Random')
+                                         .map(s => strategyMetrics[s.name].mean))) {
+            row.querySelector('td:nth-child(2)').style.fontWeight = 'bold';
+            row.querySelector('td:nth-child(2)').style.color = '#27ae60';
+        }
 
-        const geneticRow = document.createElement('tr');
-        geneticRow.innerHTML = `
-            <td>Genetic Algorithm</td>
-            <td>${geneticTime.toFixed(2)}s</td>
-            <td>${geneticTime.toFixed(2)}s</td>
-            <td>0.00</td>
-            <td>${geneticTime.toFixed(2)}s</td>
-            <td>${geneticWorkloadStd.toFixed(2)}</td>
-        `;
-        tableBody.appendChild(geneticRow);
-    }
+        tableBody.appendChild(row);
+    });
+}
+
+// Make sure these calculation functions exist
+function calculateMean(values) {
+    if (values.length === 0) return 0;
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
+}
+
+function calculateMedian(values) {
+    if (values.length === 0) return 0;
+
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+
+    return sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+}
+
+function calculateStandardDeviation(values) {
+    if (values.length <= 1) return 0;
+
+    const mean = calculateMean(values);
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+
+    return Math.sqrt(variance);
+}
+
+function calculateWorkloadStd(workloadData) {
+    const values = Object.values(workloadData);
+    return calculateStandardDeviation(values);
 }
 
 function updateHistogram() {
