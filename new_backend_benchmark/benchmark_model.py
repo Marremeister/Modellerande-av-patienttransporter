@@ -33,7 +33,8 @@ class BenchmarkModel:
         return {
             "Default Scenario": self._get_default_scenario(),
             "Emergency Heavy": self._get_emergency_scenario(),
-            "Distributed": self._get_distributed_scenario()
+            "Distributed": self._get_distributed_scenario(),
+            "Complex": self._get_complex_benchmark()
         }
 
     def get_scenario(self, name):
@@ -89,6 +90,47 @@ class BenchmarkModel:
             ("Admin Office", "Reception", False),
             ("Cafeteria", "Admin Office", False),
             ("Emergency", "Cafeteria", False)
+        ]
+
+    def _get_complex_benchmark(self):
+        """Complex benchmark scenario with 25 transport requests."""
+        return [
+            # Emergency department requests (some urgent)
+            ("Emergency", "ICU", True),
+            ("Emergency", "Surgery", True),
+            ("Emergency", "Radiology", True),
+            ("Emergency", "General Ward", False),
+            ("Emergency", "Pharmacy", False),
+
+            # ICU requests
+            ("ICU", "Surgery", True),
+            ("ICU", "Radiology", False),
+            ("ICU", "Pharmacy", False),
+
+            # Surgery department requests
+            ("Surgery", "ICU", True),
+            ("Surgery", "Recovery", False),
+            ("Surgery", "General Ward", False),
+
+            # Radiology requests
+            ("Radiology", "Emergency", True),
+            ("Radiology", "Oncology", False),
+            ("Radiology", "Neurology", False),
+
+            # Other specialized departments
+            ("Cardiology", "ICU", True),
+            ("Neurology", "Surgery", False),
+            ("Orthopedics", "Radiology", False),
+            ("Pediatrics", "Emergency", True),
+            ("Oncology", "Radiology", False),
+
+            # Support services
+            ("Laboratory", "Emergency", True),
+            ("Pharmacy", "General Ward", False),
+            ("General Ward", "Radiology", False),
+            ("Reception", "Cardiology", False),
+            ("Cafeteria", "Admin Office", False),
+            ("Admin Office", "Reception", False)
         ]
 
     def run_ilp_benchmark(self, num_transporters, requests, ilp_mode=ILPMode.MAKESPAN, extra_params=None):
@@ -349,3 +391,4 @@ class BenchmarkModel:
             "min": np.min(values),
             "max": np.max(values)
         }
+
