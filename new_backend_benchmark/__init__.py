@@ -30,3 +30,4 @@ def setup_benchmark(app, socketio, hospital_system):
 
     print("✅ Benchmark MVC initialized")
     return controller
+

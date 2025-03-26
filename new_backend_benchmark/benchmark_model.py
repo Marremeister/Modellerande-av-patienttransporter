@@ -1,14 +1,13 @@
 """
 Model component for benchmark functionality.
-Handles data and business logic for running benchmarks.
+Updated to include new optimization strategies.
 """
-
-import time
 import numpy as np
 from Model.model_transportation_request import TransportationRequest
 from Model.Assignment_strategies.ILP.ilp_optimizer_strategy import ILPOptimizerStrategy
 from Model.Assignment_strategies.ILP.ilp_mode import ILPMode
 from Model.Assignment_strategies.Random.random_assignment_strategy import RandomAssignmentStrategy
+from Model.Assignment_strategies.Genetic_algorithms.genetic_algorithm_strategy import GeneticAlgorithmStrategy
 
 
 class BenchmarkModel:
@@ -92,7 +91,7 @@ class BenchmarkModel:
             ("Emergency", "Cafeteria", False)
         ]
 
-    def run_ilp_benchmark(self, num_transporters, requests, ilp_mode=ILPMode.MAKESPAN):
+    def run_ilp_benchmark(self, num_transporters, requests, ilp_mode=ILPMode.MAKESPAN, extra_params=None):
         """
         Run a single ILP benchmark with the given configuration.
 
@@ -100,6 +99,7 @@ class BenchmarkModel:
             num_transporters (int): Number of transporters to use
             requests (list): List of transport requests as (origin, destination, urgent) tuples
             ilp_mode (ILPMode): The ILP optimization mode to use
+            extra_params (dict): Additional parameters for specific modes (e.g., num_clusters)
 
         Returns:
             dict: Results including makespan and workload distribution
@@ -118,8 +118,64 @@ class BenchmarkModel:
         for origin, destination, urgent in requests:
             self.system.create_transport_request(origin, destination, "stretcher", urgent)
 
-        # Create optimizer strategy
-        strategy = ILPOptimizerStrategy(ilp_mode)
+        # Create optimizer strategy with appropriate parameters
+        if extra_params is None:
+            extra_params = {}
+
+        strategy = ILPOptimizerStrategy(ilp_mode, **extra_params)
+
+        # Run optimization
+        graph = self.system.hospital.get_graph()
+        plan = strategy.generate_assignment_plan(transporters, TransportationRequest.pending_requests, graph)
+
+        # Calculate makespan and workload
+        makespan = 0
+        workload = {}
+
+        for t in transporters:
+            assigned_requests = plan.get(t.name, [])
+            total_time = self._estimate_execution_time(t, assigned_requests)
+            workload[t.name] = total_time
+            makespan = max(makespan, total_time)
+
+        return {
+            "makespan": makespan,
+            "workload": workload,
+            "plan": plan
+        }
+
+    def run_genetic_benchmark(self, num_transporters, requests, params=None):
+        """
+        Run a benchmark using the Genetic Algorithm optimizer.
+
+        Args:
+            num_transporters (int): Number of transporters to use
+            requests (list): List of transport requests
+            params (dict): Additional parameters for the genetic algorithm
+
+        Returns:
+            dict: Results including makespan and workload
+        """
+        # Reset the system state
+        self._reset_system_state()
+
+        # Create transporters
+        transporters = []
+        for i in range(num_transporters):
+            name = f"Benchmark_T{i + 1}"
+            self.system.add_transporter(name)
+            transporters.append(self.system.transport_manager.get_transporter(name))
+
+        # Create transport requests
+        for origin, destination, urgent in requests:
+            self.system.create_transport_request(origin, destination, "stretcher", urgent)
+
+        # Create genetic algorithm strategy
+        strategy_params = {}
+        if params:
+            strategy_params.update(params)
+
+        strategy = GeneticAlgorithmStrategy(**strategy_params)
 
         # Run optimization
         graph = self.system.hospital.get_graph()

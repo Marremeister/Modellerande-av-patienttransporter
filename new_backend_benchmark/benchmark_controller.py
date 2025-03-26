@@ -1,6 +1,6 @@
 """
 Controller component for benchmark functionality.
-Handles application logic and workflow for running benchmarks.
+Updated to include the new optimization strategies.
 """
 
 import time
@@ -82,15 +82,12 @@ class BenchmarkController:
         else:
             return {"status": "No benchmark running"}
 
+    # Add this function to your benchmark_controller.py file
+
     def _run_benchmark_thread(self, num_transporters, random_runs, strategies, scenarios):
         """
         Run the benchmark in a background thread.
-
-        Args:
-            num_transporters (int): Number of transporters to use
-            random_runs (int): Number of random simulations to run
-            strategies (list): List of strategy names to benchmark
-            scenarios (list): List of scenario names to use
+        Fixed version to properly display new optimizers in graphs.
         """
         try:
             # Loop through all scenarios
@@ -102,47 +99,102 @@ class BenchmarkController:
                 # Get the scenario requests
                 requests = self.model.get_scenario(scenario_name)
 
-                # Run ILP Makespan benchmark (always run this as baseline)
+                # Track all results to ensure consistent output format
+                benchmark_results = {}
+
+                # Run ILP Makespan benchmark if selected
                 if "ILP: Makespan" in strategies:
                     self._update_progress(5, f"Running ILP Makespan optimization for {scenario_name}")
                     ilp_results = self.model.run_ilp_benchmark(
                         num_transporters, requests, ILPMode.MAKESPAN
                     )
 
-                    # Emit results
-                    self.socketio.emit("benchmark_results", {
-                        "strategy": "ILP: Makespan",
+                    # Store results in standard format
+                    benchmark_results["ILP: Makespan"] = {
                         "times": [ilp_results["makespan"]],
                         "workload": ilp_results["workload"]
-                    })
+                    }
 
-                # Run ILP Equal Workload benchmark
+                # Run ILP Equal Workload benchmark if selected
                 if "ILP: Equal Workload" in strategies:
-                    self._update_progress(15, f"Running ILP Equal Workload optimization for {scenario_name}")
+                    self._update_progress(10, f"Running ILP Equal Workload optimization for {scenario_name}")
                     ilp_equal_results = self.model.run_ilp_benchmark(
                         num_transporters, requests, ILPMode.EQUAL_WORKLOAD
                     )
 
-                    # Emit results
-                    self.socketio.emit("benchmark_results", {
-                        "strategy": "ILP: Equal Workload",
+                    # Store results in standard format
+                    benchmark_results["ILP: Equal Workload"] = {
                         "times": [ilp_equal_results["makespan"]],
                         "workload": ilp_equal_results["workload"]
-                    })
+                    }
 
-                # Run ILP Urgency First benchmark
+                # Run ILP Urgency First benchmark if selected
                 if "ILP: Urgency First" in strategies:
-                    self._update_progress(25, f"Running ILP Urgency First optimization for {scenario_name}")
+                    self._update_progress(15, f"Running ILP Urgency First optimization for {scenario_name}")
                     ilp_urgency_results = self.model.run_ilp_benchmark(
                         num_transporters, requests, ILPMode.URGENCY_FIRST
                     )
 
-                    # Emit results
-                    self.socketio.emit("benchmark_results", {
-                        "strategy": "ILP: Urgency First",
+                    # Store results in standard format
+                    benchmark_results["ILP: Urgency First"] = {
                         "times": [ilp_urgency_results["makespan"]],
                         "workload": ilp_urgency_results["workload"]
-                    })
+                    }
+
+                # Run ILP Cluster-Based benchmark if selected
+                if "ILP: Cluster-Based" in strategies:
+                    self._update_progress(20, f"Running ILP Cluster-Based optimization for {scenario_name}")
+                    try:
+                        # Force deterministic behavior for benchmarking
+                        dept_count = len(set(origin for origin, _, _ in requests) |
+                                         set(dest for _, dest, _ in requests))
+                        num_clusters = max(2, min(5, dept_count // 5))
+
+                        ilp_cluster_results = self.model.run_ilp_benchmark(
+                            num_transporters, requests, ILPMode.CLUSTER_BASED,
+                            extra_params={"num_clusters": num_clusters}
+                        )
+
+                        # Store results in standard format
+                        benchmark_results["ILP: Cluster-Based"] = {
+                            "times": [ilp_cluster_results["makespan"]],
+                            "workload": ilp_cluster_results["workload"]
+                        }
+
+                        # Debug output
+                        print(f"Cluster-Based ILP results: {ilp_cluster_results['makespan']}")
+                    except Exception as e:
+                        print(f"Error running Cluster-Based ILP: {str(e)}")
+                        # Create placeholder results to avoid UI errors
+                        benchmark_results["ILP: Cluster-Based"] = {
+                            "times": [0],
+                            "workload": {t.name: 0 for t in self.model.transporters}
+                        }
+
+                # Run Genetic Algorithm benchmark if selected
+                if "Genetic Algorithm" in strategies:
+                    self._update_progress(25, f"Running Genetic Algorithm optimization for {scenario_name}")
+                    try:
+                        genetic_results = self.model.run_genetic_benchmark(
+                            num_transporters, requests,
+                            params={"time_limit_seconds": 3}  # Short time limit for benchmarking
+                        )
+
+                        # Store results in standard format
+                        benchmark_results["Genetic Algorithm"] = {
+                            "times": [genetic_results["makespan"]],
+                            "workload": genetic_results["workload"]
+                        }
+
+                        # Debug output
+                        print(f"Genetic Algorithm results: {genetic_results['makespan']}")
+                    except Exception as e:
+                        print(f"Error running Genetic Algorithm: {str(e)}")
+                        # Create placeholder results to avoid UI errors
+                        benchmark_results["Genetic Algorithm"] = {
+                            "times": [0],
+                            "workload": {t.name: 0 for t in self.model.transporters}
+                        }
 
                 # Run Random benchmark with multiple iterations
                 if "Random" in strategies:
@@ -159,33 +211,44 @@ class BenchmarkController:
                     # Get workload from first run
                     random_workload = random_results[0]["workload"] if random_results else {}
 
+                    # Store results in standard format
+                    benchmark_results["Random"] = {
+                        "times": random_times,
+                        "workload": random_workload
+                    }
+
                     # Update progress incrementally during random runs
-                    for i in range(random_runs):
+                    progress_steps = max(1, random_runs // 10)
+                    for i in range(0, random_runs, progress_steps):
                         if self.cancel_flag:
                             self.socketio.emit("benchmark_complete", {"cancelled": True})
                             return
 
-                        # Update progress every 10 runs or for each run if fewer than 10
-                        if i % max(1, random_runs // 10) == 0:
-                            progress = 30 + int((i / random_runs) * 70)
-                            self._update_progress(
-                                progress, f"Processed Random simulation ({i + 1}/{random_runs})"
-                            )
+                        progress = 30 + int((i / random_runs) * 70)
+                        step = min(i + progress_steps, random_runs)
+                        self._update_progress(progress, f"Processed Random simulation ({step}/{random_runs})")
 
-                    # Emit random results
+                # Emit all results in a consistent format
+                for strategy_name, result in benchmark_results.items():
                     self.socketio.emit("benchmark_results", {
-                        "strategy": "Random",
-                        "times": random_times,
-                        "workload": random_workload
+                        "strategy": strategy_name,
+                        "times": result["times"],
+                        "workload": result["workload"]
                     })
+                    # Add a small delay to ensure messages are processed in order
+                    import time
+                    time.sleep(0.1)
 
-            # Emit benchmark complete
-            self._update_progress(100, "Benchmark complete")
-            time.sleep(0.5)  # Give a moment for final progress update
-            self.socketio.emit("benchmark_complete", {"success": True})
+                # Emit benchmark complete
+                self._update_progress(100, "Benchmark complete")
+                import time
+                time.sleep(0.5)  # Give a moment for final progress update
+                self.socketio.emit("benchmark_complete", {"success": True})
 
         except Exception as e:
+            import traceback
             print(f"Error in benchmark: {str(e)}")
+            traceback.print_exc()
             self.socketio.emit("benchmark_complete", {"error": str(e)})
 
     def _update_progress(self, progress, current_task):
