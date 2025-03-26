@@ -260,95 +260,9 @@ function createPlaceholderCharts() {
     }
   });
 
-  // Create optimal workload chart
-  const optimalWorkloadCtx = document.getElementById('optimal-workload-chart').getContext('2d');
-  charts.optimalWorkloadChart = new Chart(optimalWorkloadCtx, {
-    type: 'bar',
-    data: {
-      labels: ['T1', 'T2', 'T3'],
-      datasets: [{
-        label: 'Total Work Time',
-        backgroundColor: 'rgba(75, 108, 183, 0.7)',
-        borderColor: 'rgba(75, 108, 183, 1)',
-        borderWidth: 1,
-        data: [0, 0, 0]
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: 'ILP Optimizer Workload Distribution'
-        },
-        subtitle: {
-          display: true,
-          text: 'Standard Deviation: 0'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Total Time (seconds)'
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Transporter'
-          }
-        }
-      }
-    }
-  });
-
-  // Create random workload chart
-  const randomWorkloadCtx = document.getElementById('random-workload-chart').getContext('2d');
-  charts.randomWorkloadChart = new Chart(randomWorkloadCtx, {
-    type: 'bar',
-    data: {
-      labels: ['T1', 'T2', 'T3'],
-      datasets: [{
-        label: 'Total Work Time',
-        backgroundColor: 'rgba(231, 76, 60, 0.7)',
-        borderColor: 'rgba(231, 76, 60, 1)',
-        borderWidth: 1,
-        data: [0, 0, 0]
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: 'Random Assignment Workload Distribution'
-        },
-        subtitle: {
-          display: true,
-          text: 'Standard Deviation: 0'
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Total Time (seconds)'
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: 'Transporter'
-          }
-        }
-      }
-    }
-  });
+  // Remove the fixed workload charts - we'll create these dynamically instead
+  delete charts.optimalWorkloadChart;
+  delete charts.randomWorkloadChart;
 }
 
 function initializeEventListeners() {
@@ -504,14 +418,18 @@ function clearBenchmarkResults() {
     random: [],
     ilpMakespan: [],
     ilpEqual: [],
-    ilpUrgency: []
+    ilpUrgency: [],
+    ilpCluster: [],
+    geneticAlgorithm: []
   };
 
   workloadData = {
     random: {},
     ilpMakespan: {},
     ilpEqual: {},
-    ilpUrgency: {}
+    ilpUrgency: {},
+    ilpCluster: {},
+    geneticAlgorithm: {}
   };
 
   // Clear result displays
@@ -520,7 +438,7 @@ function clearBenchmarkResults() {
   document.getElementById('improvement-percentage').textContent = '--';
   document.getElementById('random-std').textContent = '--';
 
-  // Reset charts
+  // Reset charts - use safer method
   resetCharts();
 
   // Clear table
@@ -546,29 +464,45 @@ function clearBenchmarkResults() {
 
   // Clear raw data table
   document.querySelector('#raw-data-table tbody').innerHTML = '';
+
+  // Clear workload charts container if it exists
+  const workloadTab = document.getElementById('tab-workload');
+  if (workloadTab) {
+    workloadTab.innerHTML = '';
+  }
+
+  // Clear any dynamic chart objects in the charts object
+  for (const key in charts) {
+    if (key.startsWith('workloadChart_')) {
+      delete charts[key];
+    }
+  }
 }
 
 function resetCharts() {
   // Reset metrics chart
-  charts.metricsChart.data.datasets.forEach((dataset) => {
-    dataset.data = [0, 0, 0, 0, 0];
-  });
-  charts.metricsChart.update();
+  if (charts.metricsChart) {
+    charts.metricsChart.data.datasets.forEach((dataset) => {
+      dataset.data = [0, 0, 0, 0, 0];
+    });
+    charts.metricsChart.update();
+  }
 
   // Reset histogram chart
-  charts.histogramChart.data.datasets[0].data = Array(10).fill(0);
-  charts.histogramChart.update();
+  if (charts.histogramChart) {
+    charts.histogramChart.data.datasets[0].data = Array(10).fill(0);
+    charts.histogramChart.update();
+  }
 
-  // Reset workload charts
-  charts.optimalWorkloadChart.data.labels = ['T1', 'T2', 'T3'];
-  charts.optimalWorkloadChart.data.datasets[0].data = [0, 0, 0];
-  charts.optimalWorkloadChart.update();
+  // We don't need to reset the workload charts anymore since they're created dynamically
 
-  charts.randomWorkloadChart.data.labels = ['T1', 'T2', 'T3'];
-  charts.randomWorkloadChart.data.datasets[0].data = [0, 0, 0];
-  charts.randomWorkloadChart.update();
+  // Reset optimizer histogram chart if it exists
+  if (charts.optimizerHistogramChart) {
+    charts.optimizerHistogramChart.data.labels = [];
+    charts.optimizerHistogramChart.data.datasets[0].data = [];
+    charts.optimizerHistogramChart.update();
+  }
 }
-
 function updateBenchmarkProgress(data) {
   const { progress, current_task, elapsed_time, estimated_completion } = data;
 
@@ -1001,29 +935,212 @@ function updateHistogram() {
 }
 
 function updateWorkloadCharts() {
-  // Update optimal workload chart
-  if (Object.keys(workloadData.ilpMakespan).length > 0) {
-    const transporters = Object.keys(workloadData.ilpMakespan);
-    const workloads = transporters.map(t => workloadData.ilpMakespan[t]);
-    const std = calculateStandardDeviation(workloads);
+    // Define color schemes for each strategy - match the metrics chart colors
+    const strategyColors = {
+        'ILP: Makespan': 'rgba(75, 108, 183, 0.7)',
+        'ILP: Equal Workload': 'rgba(241, 196, 15, 0.7)',
+        'ILP: Urgency First': 'rgba(230, 126, 34, 0.7)',
+        'ILP: Cluster-Based': 'rgba(46, 204, 113, 0.7)',
+        'Genetic Algorithm': 'rgba(155, 89, 182, 0.7)',
+        'Random': 'rgba(231, 76, 60, 0.7)'
+    };
 
-    charts.optimalWorkloadChart.data.labels = transporters;
-    charts.optimalWorkloadChart.data.datasets[0].data = workloads;
-    charts.optimalWorkloadChart.options.plugins.subtitle.text = `Standard Deviation: ${std.toFixed(2)}`;
-    charts.optimalWorkloadChart.update();
-  }
+    const strategyBorderColors = {
+        'ILP: Makespan': 'rgba(75, 108, 183, 1)',
+        'ILP: Equal Workload': 'rgba(241, 196, 15, 1)',
+        'ILP: Urgency First': 'rgba(230, 126, 34, 1)',
+        'ILP: Cluster-Based': 'rgba(46, 204, 113, 1)',
+        'Genetic Algorithm': 'rgba(155, 89, 182, 1)',
+        'Random': 'rgba(231, 76, 60, 1)'
+    };
 
-  // Update random workload chart
-  if (Object.keys(workloadData.random).length > 0) {
-    const transporters = Object.keys(workloadData.random);
-    const workloads = transporters.map(t => workloadData.random[t]);
-    const std = calculateStandardDeviation(workloads);
+    // Get all active strategies with workload data
+    const activeStrategies = [];
 
-    charts.randomWorkloadChart.data.labels = transporters;
-    charts.randomWorkloadChart.data.datasets[0].data = workloads;
-    charts.randomWorkloadChart.options.plugins.subtitle.text = `Standard Deviation: ${std.toFixed(2)}`;
-    charts.randomWorkloadChart.update();
-  }
+    if (Object.keys(workloadData.ilpMakespan).length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Makespan',
+            workload: workloadData.ilpMakespan
+        });
+    }
+
+    if (Object.keys(workloadData.ilpEqual).length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Equal Workload',
+            workload: workloadData.ilpEqual
+        });
+    }
+
+    if (Object.keys(workloadData.ilpUrgency).length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Urgency First',
+            workload: workloadData.ilpUrgency
+        });
+    }
+
+    if (Object.keys(workloadData.ilpCluster).length > 0) {
+        activeStrategies.push({
+            name: 'ILP: Cluster-Based',
+            workload: workloadData.ilpCluster
+        });
+    }
+
+    if (Object.keys(workloadData.geneticAlgorithm).length > 0) {
+        activeStrategies.push({
+            name: 'Genetic Algorithm',
+            workload: workloadData.geneticAlgorithm
+        });
+    }
+
+    if (Object.keys(workloadData.random).length > 0) {
+        activeStrategies.push({
+            name: 'Random',
+            workload: workloadData.random
+        });
+    }
+
+    // Update the container structure to support multiple charts
+    updateWorkloadChartContainer(activeStrategies);
+
+    // Create or update charts for each strategy
+    activeStrategies.forEach(strategy => {
+        const transporters = Object.keys(strategy.workload);
+        const workloads = transporters.map(t => strategy.workload[t]);
+        const std = calculateStandardDeviation(workloads);
+
+        // Create or update the chart
+        createOrUpdateWorkloadChart(
+            strategy.name,
+            transporters,
+            workloads,
+            std,
+            strategyColors[strategy.name],
+            strategyBorderColors[strategy.name]
+        );
+    });
+}
+
+
+function updateWorkloadChartContainer(activeStrategies) {
+    const workloadTab = document.getElementById('tab-workload');
+    if (!workloadTab) return;
+
+    // Clear existing content
+    workloadTab.innerHTML = '';
+
+    // Create a wrapper div for the charts
+    const workloadCharts = document.createElement('div');
+    workloadCharts.className = 'workload-charts';
+    workloadTab.appendChild(workloadCharts);
+
+    // Create chart containers for each strategy
+    activeStrategies.forEach(strategy => {
+        const container = document.createElement('div');
+        container.className = 'workload-chart-container';
+        container.id = `workload-chart-container-${strategy.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
+        const title = document.createElement('h3');
+        title.textContent = `${strategy.name} Workload Distribution`;
+        container.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        canvas.id = `workload-chart-${strategy.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+        container.appendChild(canvas);
+
+        workloadCharts.appendChild(container);
+    });
+
+    // Add description below charts
+    const description = document.createElement('div');
+    description.className = 'chart-description';
+    description.innerHTML = `
+        <p>These charts show how work is distributed across transporters for each optimizer.
+           Each bar represents the total estimated travel time for a transporter.</p>
+        <p>The standard deviation (σ) provides a measure of workload balance - lower values
+           indicate more even distribution of work.</p>
+        <p>Compare the different optimizers to see which ones provide better workload balance.</p>
+    `;
+    workloadTab.appendChild(description);
+
+    // Adjust container style based on number of strategies
+    if (activeStrategies.length === 1) {
+        // Single strategy - make it wider
+        document.querySelectorAll('.workload-chart-container').forEach(container => {
+            container.style.maxWidth = '100%';
+        });
+    } else if (activeStrategies.length === 2) {
+        // Two strategies - side by side
+        document.querySelectorAll('.workload-chart-container').forEach(container => {
+            container.style.flexBasis = '50%';
+        });
+    } else {
+        // Three or more - wrap in grid
+        workloadCharts.style.display = 'grid';
+        workloadCharts.style.gridTemplateColumns = 'repeat(auto-fill, minmax(350px, 1fr))';
+        workloadCharts.style.gap = '20px';
+    }
+}
+function createOrUpdateWorkloadChart(strategyName, transporters, workloads, std, backgroundColor, borderColor) {
+    const chartId = `workload-chart-${strategyName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Check if this chart already exists in our charts object
+    const chartKey = `workloadChart_${strategyName.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    if (!charts[chartKey]) {
+        // Create new chart
+        charts[chartKey] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: transporters,
+                datasets: [{
+                    label: 'Total Work Time',
+                    backgroundColor: backgroundColor,
+                    borderColor: borderColor,
+                    borderWidth: 1,
+                    data: workloads
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `${strategyName} Workload Distribution`
+                    },
+                    subtitle: {
+                        display: true,
+                        text: `Standard Deviation: ${std.toFixed(2)}`
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Total Time (seconds)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Transporter'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // Update existing chart
+        charts[chartKey].data.labels = transporters;
+        charts[chartKey].data.datasets[0].data = workloads;
+        charts[chartKey].options.plugins.subtitle.text = `Standard Deviation: ${std.toFixed(2)}`;
+        charts[chartKey].update();
+    }
 }
 
 function updateRawDataTable() {
