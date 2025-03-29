@@ -41,7 +41,7 @@ class CoordinateGenerator:
         logger.setLevel(logging.INFO)
         return logger
 
-    def generate_coordinates(self, iterations=1000, temperature=0.1, cooling_factor=0.98):
+    def generate_coordinates(self, iterations=1500, temperature=0.1, cooling_factor=0.98, repulsion_force=2.0):
         """
         Generate coordinates for all nodes using force-directed placement.
         This algorithm positions nodes so that connected nodes are closer together,
@@ -51,6 +51,7 @@ class CoordinateGenerator:
             iterations: Number of iterations to run the force-directed algorithm
             temperature: Initial "temperature" controlling how much nodes can move
             cooling_factor: Factor to reduce temperature each iteration
+            repulsion_force: Strength of repulsion between nodes
 
         Returns:
             bool: True if coordinates were generated successfully
@@ -119,8 +120,8 @@ class CoordinateGenerator:
                     # Distance between nodes
                     distance = max(0.1, np.sqrt(dx ** 2 + dy ** 2))
 
-                    # Repulsive force
-                    k = 1.0  # Repulsion strength
+                    # Repulsive force - strengthened by repulsion_force parameter
+                    k = repulsion_force  # Repulsion strength
                     f_rep = k / distance
 
                     # Normalize direction
@@ -153,7 +154,7 @@ class CoordinateGenerator:
                         ideal = ideal_distances[i, j]
 
                         # Spring force
-                        f_spring = (distance - ideal) / ideal
+                        f_spring = (distance - ideal) / max(0.0001, ideal)  # Prevent division by zero
 
                         # Normalize direction
                         dx /= distance
@@ -194,6 +195,9 @@ class CoordinateGenerator:
             x, y = positions[i]
             self.graph.set_node_coordinates(node, x, y)
 
+        # Scale the layout to ensure it uses the full canvas
+        self.scale_layout()
+
         self.logger.info("Coordinate generation complete.")
         return True
 
@@ -232,6 +236,94 @@ class CoordinateGenerator:
 
         self.logger.info("Simple coordinate generation complete.")
         return True
+
+    def generate_grid_layout(self, spacing=120):
+        """
+        Place departments in a grid layout with even spacing.
+
+        Args:
+            spacing: Space between departments in pixels
+
+        Returns:
+            bool: True if layout was generated successfully
+        """
+        self.logger.info("Generating grid layout...")
+
+        # Get all nodes
+        departments = list(self.graph.adjacency_list.keys())
+        if not departments:
+            self.logger.error("No nodes in graph. Cannot generate grid layout.")
+            return False
+
+        # Calculate grid dimensions
+        grid_size = int(np.ceil(np.sqrt(len(departments))))
+
+        # Place nodes in a grid
+        for i, dept in enumerate(departments):
+            row = i // grid_size
+            col = i % grid_size
+
+            x = 100 + col * spacing
+            y = 100 + row * spacing
+
+            # Add some small random offset to avoid perfect alignment
+            x += random.uniform(-10, 10)
+            y += random.uniform(-10, 10)
+
+            self.graph.set_node_coordinates(dept, x, y)
+
+        # Scale to fit the canvas
+        self.scale_layout()
+
+        self.logger.info(f"Generated grid layout for {len(departments)} departments")
+        return True
+
+    def scale_layout(self, padding=50):
+        """
+        Scale the layout to fit the canvas with proper padding.
+
+        Args:
+            padding: Padding in pixels around the edge of the canvas
+        """
+        # Get all coordinates
+        nodes = list(self.graph.adjacency_list.keys())
+        if not nodes:
+            return
+
+        # Find current bounds
+        coords = [self.graph.get_node_coordinates(n) for n in nodes]
+        x_values = [c[0] for c in coords]
+        y_values = [c[1] for c in coords]
+
+        min_x = min(x_values)
+        max_x = max(x_values)
+        min_y = min(y_values)
+        max_y = max(y_values)
+
+        # Calculate scale factors
+        available_width = self.canvas_width - 2 * padding
+        available_height = self.canvas_height - 2 * padding
+
+        current_width = max(1, max_x - min_x)  # Avoid division by zero
+        current_height = max(1, max_y - min_y)
+
+        scale_x = available_width / current_width
+        scale_y = available_height / current_height
+
+        # Use the smaller scale to preserve aspect ratio
+        scale = min(scale_x, scale_y)
+
+        # Scale and center all nodes
+        for node in nodes:
+            x, y = self.graph.get_node_coordinates(node)
+
+            # Scale and shift
+            new_x = padding + (x - min_x) * scale
+            new_y = padding + (y - min_y) * scale
+
+            self.graph.set_node_coordinates(node, new_x, new_y)
+
+        self.logger.info(f"Scaled layout by factor {scale:.2f}")
 
     def adjust_coordinates_by_department_type(self, department_types=None):
         """
@@ -290,7 +382,7 @@ class CoordinateGenerator:
             ]
 
             for i, dept_type in enumerate(type_groups.keys()):
-                type_regions[dept_type] = regions[i]
+                type_regions[dept_type] = regions[i % len(regions)]
         else:
             # More complex: arrange in a circle
             radius = min(self.canvas_width, self.canvas_height) * 0.3
@@ -360,7 +452,7 @@ class CoordinateGenerator:
 
         return node_types
 
-    def apply_jitter(self, amount=10):
+    def apply_jitter(self, amount=30):
         """
         Apply small random offsets to coordinates to avoid perfect overlaps.
 

@@ -66,27 +66,33 @@ def analyze_data(file_path, output_dir='analysis_output'):
     logger.info("Building hospital graph...")
     builder = HospitalGraphBuilder(analyzer, time_factor=0.1)  # Scale times to make simulation faster
     graph = builder.build_graph(path_threshold=1.25)
+    if hasattr(builder, 'name_mapping'):
+        analyzer.name_mapping = builder.name_mapping
 
     # Ensure graph is connected
     builder.validate_graph_connectivity()
 
     # Generate coordinates
+    # Generate coordinates
     logger.info("Generating coordinates for graph nodes...")
     coord_generator = CoordinateGenerator(graph, canvas_width=1400, canvas_height=1000)
 
-    # Try force-directed layout first
+    # Try force-directed layout with improved parameters
     try:
-        coord_generator.generate_coordinates(iterations=500)
+        coord_generator.generate_coordinates(iterations=1500, repulsion_force=3.0)
     except Exception as e:
         logger.warning(f"Force-directed layout failed: {str(e)}")
-        logger.info("Falling back to simple layout...")
-        coord_generator.generate_simple_coordinates()
+        logger.info("Falling back to grid layout...")
+        coord_generator.generate_grid_layout(spacing=150)
 
     # Adjust coordinates by department type
     coord_generator.adjust_coordinates_by_department_type()
 
     # Apply jitter to avoid perfect overlaps
-    coord_generator.apply_jitter()
+    coord_generator.apply_jitter(amount=30)
+
+    # Scale layout to fit canvas
+    coord_generator.scale_layout(padding=80)
 
     # Export coordinates
     coord_generator.export_coordinates(os.path.join(output_dir, 'node_coordinates.json'))
@@ -96,6 +102,10 @@ def analyze_data(file_path, output_dir='analysis_output'):
     hospital.graph = graph
 
     logger.info(f"Analysis complete. Results saved to {output_dir}")
+
+    if hospital and hospital.graph:
+        graph_file = save_hospital_graph_for_integration(hospital)
+        logger.info(f"Hospital graph saved for integration: {graph_file}")
 
     return hospital, analyzer, builder
 
@@ -188,6 +198,42 @@ def initialize_hospital_from_data(file_path, output_dir='analysis_output'):
     """
     hospital, _, _ = analyze_data(file_path, output_dir)
     return hospital
+
+
+def save_hospital_graph_for_integration(hospital, output_file='analysis_output/hospital_graph.json'):
+    """Save the hospital graph in a format that can be loaded by the system."""
+    import json
+
+    # Extract data from hospital
+    departments = hospital.graph.get_nodes()
+
+    # Extract coordinates
+    coordinates = {}
+    for dept in departments:
+        x, y = hospital.graph.get_node_coordinates(dept)
+        coordinates[dept] = {'x': x, 'y': y}
+
+    # Extract corridors
+    corridors = []
+    for source in hospital.graph.adjacency_list:
+        for target, weight in hospital.graph.adjacency_list[source].items():
+            # Only add each corridor once (since graph is undirected)
+            if source < target:  # Simple way to ensure uniqueness
+                corridors.append([source, target, weight])
+
+    # Create data structure
+    data = {
+        'departments': departments,
+        'coordinates': coordinates,
+        'corridors': corridors
+    }
+
+    # Save to file
+    with open(output_file, 'w') as f:
+        json.dump(data, f, indent=2)
+
+    print(f"Hospital graph saved to {output_file}")
+    return output_file
 
 
 if __name__ == "__main__":
