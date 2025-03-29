@@ -460,3 +460,5 @@ function animateTransporterBetweenClusters(transporterName, departmentPath, dura
     moveStep();
   }
 }
+
+//hej
